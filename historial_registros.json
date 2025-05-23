@@ -1,0 +1,58 @@
+[
+  {
+    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V5.csv",
+    "fecha": "2025-05-23 16:56:59",
+    "archivos": [
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V5.csv"
+    ],
+    "filtros_aplicados": {}
+  },
+  {
+    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V5.csv",
+    "fecha": "2025-05-23 16:57:06",
+    "archivos": [
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V5.csv"
+    ],
+    "filtros_aplicados": {}
+  },
+  {
+    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V4.csv",
+    "fecha": "2025-05-23 16:57:20",
+    "archivos": [
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V4.csv"
+    ],
+    "filtros_aplicados": {}
+  },
+  {
+    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V4.csv",
+    "fecha": "2025-05-23 16:57:48",
+    "archivos": [
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V4.csv"
+    ],
+    "filtros_aplicados": {}
+  },
+  {
+    "descripcion": "Filtros aplicados: Área=PRACTICANTES AMBIENTAL, Fechas=NINGUNA, Turno=MAÑANA, Búsqueda=NINGUNA",
+    "fecha": "2025-05-23 16:58:05",
+    "archivos": [],
+    "filtros_aplicados": {
+      "area": "PRACTICANTES AMBIENTAL",
+      "fechas": [],
+      "turno": "MAÑANA",
+      "busqueda": ""
+    }
+  },
+  {
+    "descripcion": "Filtros aplicados: Área=PRACTICANTES AMBIENTAL, Fechas=NINGUNA, Turno=MAÑANA, Búsqueda=NINGUNA",
+    "fecha": "2025-05-23 16:58:21",
+    "archivos": [],
+    "filtros_aplicados": {
+      "area": "PRACTICANTES AMBIENTAL",
+      "fechas": [],
+      "turno": "MAÑANA",
+      "busqueda": ""
+    }
+  }
+]

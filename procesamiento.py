@@ -7,6 +7,8 @@ from datetime import datetime
 import difflib
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl import load_workbook
+import json
+import os
 
 # Constantes y configuraciones
 titulos_academicos = ["mtr", "msc", "lic", "sr", "srta", "dra", "est", "prof", "doc", "aux"]
@@ -346,8 +348,6 @@ def calcular_total_horas(grupo):
     return f"{horas_exactas:.2f}", minutos_totales
 
 
-
-
 def procesar_excel(file_paths):
     global nombre_original_df, areas_disponibles
 
@@ -393,6 +393,10 @@ def procesar_excel(file_paths):
     fechas_disponibles_var.clear()
     fechas_disponibles_var.extend(fechas)
     fechas_seleccionadas_var.clear()
+
+    registrar_historial_carga_archivos(file_paths)  
+
+    print(f"✅ Datos procesados: {len(df_total)} registros")
 
     return generar_reporte(df_total)
 
@@ -782,6 +786,8 @@ def aplicar_filtros_y_guardar_estado(area, fechas, turno, busqueda=""):
     
     # Guardar el estado actual
     df_actual_filtrado = df_resultado.copy()
+
+    registrar_historial_filtros_aplicados()
     
     return df_resultado
 
@@ -903,3 +909,113 @@ def reiniciar_todo():
     }
 
     return pd.DataFrame()  # Devuelve un df vacío por si lo usas
+
+# ==== Funciones de manejo de historial ====
+
+HISTORIAL_REGISTROS = []
+RUTA_HISTORIAL = "historial_registros.json"
+ULTIMAS_RUTAS_CARGADAS = []
+
+class RegistroHistorial:
+    def __init__(self, descripcion, fecha, archivos, filtros_aplicados=None):
+        self.descripcion = descripcion
+        self.fecha = fecha
+        self.archivos = archivos
+        self.filtros_aplicados = filtros_aplicados if filtros_aplicados is not None else {}
+
+    def to_dict(self):
+        return {
+            "descripcion": self.descripcion,
+            "fecha": self.fecha,
+            "archivos": self.archivos,
+            "filtros_aplicados": self.filtros_aplicados
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            descripcion=data["descripcion"],
+            fecha=data["fecha"],
+            archivos=data["archivos"],
+            filtros_aplicados=data.get("filtros_aplicados", {})
+        )
+    
+def guardar_en_historial(descripcion, archivos=None, filtros=None):
+    global HISTORIAL_REGISTROS
+    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if archivos is None:
+        archivos = []
+    if filtros is None:
+        filtros = {}
+
+    registro = RegistroHistorial(descripcion, fecha_actual, archivos, filtros)
+    HISTORIAL_REGISTROS.append(registro)
+    guardar_historial_en_archivo()
+
+def guardar_historial_en_archivo():
+    try:
+        with open(RUTA_HISTORIAL, 'w', encoding='utf-8') as f:
+            json.dump([r.to_dict() for r in HISTORIAL_REGISTROS], f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error guardando historial: {e}")
+
+def cargar_historial_desde_archivo():
+    global HISTORIAL_REGISTROS
+    try:
+        if os.path.exists(RUTA_HISTORIAL):
+            with open(RUTA_HISTORIAL, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                HISTORIAL_REGISTROS = [RegistroHistorial.from_dict(item) for item in data]
+    except Exception as e:
+        print(f"Error cargando historial: {e}")
+
+def obtener_historial():
+    try:
+        if os.path.exists(RUTA_HISTORIAL):
+            with open(RUTA_HISTORIAL, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error al obtener historial: {e}")
+    return []
+
+
+def registrar_historial_carga_archivos(file_paths):
+    """Registra en el historial la carga de archivos"""
+    if not file_paths:
+        return
+    
+    descripcion = f"Carga de archivos: {', '.join([os.path.basename(p) for p in file_paths])}"
+    guardar_en_historial(descripcion, archivos=file_paths)
+
+def registrar_historial_filtros_aplicados():
+    """Registra en el historial la aplicación de filtros"""
+    filtros = obtener_estado_filtros_actual()
+    descripcion = (
+        f"Filtros aplicados: "
+        f"Área={filtros['area'] or 'TODOS'}, "
+        f"Fechas={filtros['fechas'] or 'NINGUNA'}, "
+        f"Turno={filtros['turno'] or 'TODOS'}, "
+        f"Búsqueda={filtros['busqueda'] or 'NINGUNA'}"
+    )
+    guardar_en_historial(descripcion, archivos=ULTIMAS_RUTAS_CARGADAS, filtros=filtros)
+
+def restaurar_registro_desde_historial(registro_dict):
+    archivos = registro_dict.get("archivos", [])
+    filtros = registro_dict.get("filtros_aplicados", {})
+
+    df = pd.DataFrame()
+
+    if archivos:
+        df = procesar_excel(archivos)  # Esto regenera nombre_original_df
+        print("✅ Restauración ejecutada desde historial con archivos:", archivos)
+
+    if filtros:
+        area = filtros.get("area", "TODOS")
+        fechas = filtros.get("fechas", [])
+        turno = filtros.get("turno", "TODOS")
+        busqueda = filtros.get("busqueda", "")
+        df = aplicar_filtros_y_guardar_estado(area, fechas, turno, busqueda)
+
+    return df
+
+

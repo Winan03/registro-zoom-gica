@@ -181,6 +181,45 @@ def reestablecer():
     fechas, areas = obtener_filtros_actuales()
     return render_template('index.html', tabla_html=html_tabla, fechas=fechas, areas=areas, busqueda_texto="")
 
+@app.route('/historial')
+def historial():
+    from procesamiento import obtener_historial
+    historial = obtener_historial()
+    return jsonify(historial)
+
+@app.route('/ver_historial')
+def ver_historial():
+    from procesamiento import obtener_historial
+    historial = obtener_historial()
+    return render_template('historial.html', historial=historial)
+
+@app.route('/restaurar_historial', methods=['POST'])
+def restaurar_historial():
+    try:
+        indice = int(request.form.get("indice"))
+        historial = procesamiento.obtener_historial()
+        if 0 <= indice < len(historial):
+            df_restaurado = procesamiento.restaurar_registro_desde_historial(historial[indice])
+
+            print(f"✅ Restaurado. Registros en memoria: {len(df_restaurado)}")
+
+            html_tabla = procesamiento.mostrar_tabla_agrupada_por_fecha(df_restaurado)
+            fechas, areas = procesamiento.obtener_filtros_actuales()
+            estado = procesamiento.obtener_estado_filtros_actual()
+            texto_busqueda = estado.get("busqueda", "")
+
+            return render_template('index.html',
+                                   tabla_html=html_tabla,
+                                   fechas=fechas,
+                                   areas=areas,
+                                   busqueda_texto=texto_busqueda)
+        else:
+            return "Índice fuera de rango", 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return "Error interno", 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)

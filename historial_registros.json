@@ -1,58 +1,112 @@
 [
   {
-    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V5.csv",
-    "fecha": "2025-05-23 16:56:59",
+    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V5.csv",
+    "fecha": "2025-05-23 19:19:04",
     "archivos": [
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
       "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V5.csv"
     ],
-    "filtros_aplicados": {}
-  },
-  {
-    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V5.csv",
-    "fecha": "2025-05-23 16:57:06",
-    "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V5.csv"
-    ],
-    "filtros_aplicados": {}
+    "filtros_aplicados": {},
+    "df_estado": []
   },
   {
     "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V4.csv",
-    "fecha": "2025-05-23 16:57:20",
+    "fecha": "2025-05-23 19:19:19",
     "archivos": [
       "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
       "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V4.csv"
     ],
-    "filtros_aplicados": {}
+    "filtros_aplicados": {},
+    "df_estado": []
   },
   {
-    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V4.csv",
-    "fecha": "2025-05-23 16:57:48",
+    "descripcion": "Búsqueda realizada: 'gonzalo'",
+    "fecha": "2025-05-23 19:19:26",
     "archivos": [
       "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
       "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V4.csv"
     ],
-    "filtros_aplicados": {}
+    "filtros_aplicados": {
+      "area": "PRACTICANTES ADMINISTRACION",
+      "fechas": [],
+      "turno": "TODOS",
+      "busqueda": "gonzalo"
+    },
+    "df_estado": [
+      {
+        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "gonzalo silva",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "gonzalo silva",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "gonzalo silva",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "gonzalo silva",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "gonzalo silva",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "gonzalo silva",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
+        "entrada": "2025-04-28",
+        "salida": "2025-04-28",
+        "fecha": "2025-04-28",
+        "nombre_normalizado": "gonzalo silva",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
+        "entrada": "2025-04-28",
+        "salida": "2025-04-28",
+        "fecha": "2025-04-28",
+        "nombre_normalizado": "gonzalo silva",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      }
+    ]
   },
   {
-    "descripcion": "Filtros aplicados: Área=PRACTICANTES AMBIENTAL, Fechas=NINGUNA, Turno=MAÑANA, Búsqueda=NINGUNA",
-    "fecha": "2025-05-23 16:58:05",
-    "archivos": [],
-    "filtros_aplicados": {
-      "area": "PRACTICANTES AMBIENTAL",
-      "fechas": [],
-      "turno": "MAÑANA",
-      "busqueda": ""
-    }
-  },
-  {
-    "descripcion": "Filtros aplicados: Área=PRACTICANTES AMBIENTAL, Fechas=NINGUNA, Turno=MAÑANA, Búsqueda=NINGUNA",
-    "fecha": "2025-05-23 16:58:21",
-    "archivos": [],
-    "filtros_aplicados": {
-      "area": "PRACTICANTES AMBIENTAL",
-      "fechas": [],
-      "turno": "MAÑANA",
-      "busqueda": ""
-    }
+    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V4.csv",
+    "fecha": "2025-05-23 19:19:44",
+    "archivos": [
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V4.csv"
+    ],
+    "filtros_aplicados": {},
+    "df_estado": []
   }
 ]

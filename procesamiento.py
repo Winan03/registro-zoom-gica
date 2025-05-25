@@ -9,6 +9,7 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl import load_workbook
 import json
 import os
+from datetime import date
 
 # Constantes y configuraciones
 titulos_academicos = ["mtr", "msc", "lic", "sr", "srta", "dra", "est", "prof", "doc", "aux"]
@@ -394,6 +395,9 @@ def procesar_excel(file_paths):
     fechas_disponibles_var.extend(fechas)
     fechas_seleccionadas_var.clear()
 
+    ULTIMAS_RUTAS_CARGADAS.clear()
+    ULTIMAS_RUTAS_CARGADAS.extend(file_paths)
+
     registrar_historial_carga_archivos(file_paths)  
 
     print(f"✅ Datos procesados: {len(df_total)} registros")
@@ -409,6 +413,9 @@ def generar_reporte(df):
         return pd.DataFrame()
 
     df = df.copy()
+
+    df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce').dt.date
+
     df.sort_values(by='fecha', inplace=True)
     reporte_final = []
 
@@ -722,31 +729,18 @@ def buscar_por_nombre(texto_busqueda, df_original):
 
 # Función principal que debes usar en tu ruta Flask
 def buscar_y_generar_reporte_con_estado(texto_busqueda, df_original):
-    """
-    Función principal que combina búsqueda y generación de reporte, 
-    y actualiza el estado de filtros
-    """
     global df_actual_filtrado
     
-    print(f"🚀 Iniciando búsqueda y generación de reporte")
-    print(f"📝 Texto: '{texto_busqueda}'")
-    print(f"📊 DataFrame original: {len(df_original) if not df_original.empty else 'VACÍO'}")
-    
-    # Actualizar estado con la búsqueda
     actualizar_estado_filtros(busqueda=texto_busqueda)
-    
-    # Realizar búsqueda
     df_filtrado = buscar_por_nombre(texto_busqueda, df_original)
-    
-    # Generar reporte
     df_reporte = generar_reporte(df_filtrado)
-    
-    # Guardar el estado actual
     df_actual_filtrado = df_reporte.copy()
-    
-    print(f"📋 Reporte final: {len(df_reporte) if not df_reporte.empty else 'VACÍO'}")
-    
+
+    # ✅ Aquí aseguras que se registre correctamente
+    registrar_historial_busqueda(texto_busqueda, df_filtrado)
+
     return df_reporte
+
 
 def actualizar_estado_filtros(area=None, fechas=None, turno=None, busqueda=None):
     """Actualiza el estado global de los filtros aplicados"""
@@ -917,18 +911,20 @@ RUTA_HISTORIAL = "historial_registros.json"
 ULTIMAS_RUTAS_CARGADAS = []
 
 class RegistroHistorial:
-    def __init__(self, descripcion, fecha, archivos, filtros_aplicados=None):
+    def __init__(self, descripcion, fecha, archivos, filtros_aplicados=None, df_estado=None):
         self.descripcion = descripcion
         self.fecha = fecha
         self.archivos = archivos
         self.filtros_aplicados = filtros_aplicados if filtros_aplicados is not None else {}
+        self.df_estado = df_estado if df_estado is not None else []
 
     def to_dict(self):
         return {
             "descripcion": self.descripcion,
             "fecha": self.fecha,
             "archivos": self.archivos,
-            "filtros_aplicados": self.filtros_aplicados
+            "filtros_aplicados": self.filtros_aplicados,
+            "df_estado": self.df_estado  # ✅ incluirlo al guardar
         }
 
     @classmethod
@@ -937,20 +933,33 @@ class RegistroHistorial:
             descripcion=data["descripcion"],
             fecha=data["fecha"],
             archivos=data["archivos"],
-            filtros_aplicados=data.get("filtros_aplicados", {})
+            filtros_aplicados=data.get("filtros_aplicados", {}),
+            df_estado=data.get("df_estado", [])  # ✅ incluirlo al cargar
         )
     
-def guardar_en_historial(descripcion, archivos=None, filtros=None):
+def guardar_en_historial(descripcion, archivos=None, filtros=None, df_estado=None):
     global HISTORIAL_REGISTROS
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     if archivos is None:
         archivos = []
     if filtros is None:
         filtros = {}
 
-    registro = RegistroHistorial(descripcion, fecha_actual, archivos, filtros)
+    # ✅ Convertir fechas en df_estado
+    if df_estado is not None and isinstance(df_estado, pd.DataFrame):
+        df_estado = df_estado.copy()
+        for col in df_estado.columns:
+            if df_estado[col].dtype == 'datetime64[ns]' or df_estado[col].dtype == 'object':
+                df_estado[col] = df_estado[col].apply(
+                    lambda x: x.strftime('%Y-%m-%d') if isinstance(x, (datetime, date)) else x
+                )
+        df_estado = df_estado.to_dict(orient='records')
+
+    registro = RegistroHistorial(descripcion, fecha_actual, archivos, filtros, df_estado)
     HISTORIAL_REGISTROS.append(registro)
     guardar_historial_en_archivo()
+
 
 def guardar_historial_en_archivo():
     try:
@@ -987,6 +996,8 @@ def registrar_historial_carga_archivos(file_paths):
     descripcion = f"Carga de archivos: {', '.join([os.path.basename(p) for p in file_paths])}"
     guardar_en_historial(descripcion, archivos=file_paths)
 
+
+
 def registrar_historial_filtros_aplicados():
     """Registra en el historial la aplicación de filtros"""
     filtros = obtener_estado_filtros_actual()
@@ -1000,22 +1011,43 @@ def registrar_historial_filtros_aplicados():
     guardar_en_historial(descripcion, archivos=ULTIMAS_RUTAS_CARGADAS, filtros=filtros)
 
 def restaurar_registro_desde_historial(registro_dict):
+    global nombre_original_df, df_actual_filtrado
+
     archivos = registro_dict.get("archivos", [])
     filtros = registro_dict.get("filtros_aplicados", {})
+    df_estado_raw = registro_dict.get("df_estado", [])
 
     df = pd.DataFrame()
 
     if archivos:
-        df = procesar_excel(archivos)  # Esto regenera nombre_original_df
+        df = procesar_excel(archivos)
         print("✅ Restauración ejecutada desde historial con archivos:", archivos)
+        nombre_original_df = df.copy()
 
+    elif df_estado_raw:
+        df = pd.DataFrame(df_estado_raw)
+        print(f"✅ Restauración ejecutada desde historial (df_estado), registros: {len(df)}")
+
+        # Evita reprocesar, ya es un reporte
+        df_actual_filtrado = df.copy()
+        return df  # ✅ Este df ya se puede mostrar en la tabla
+
+    # ⚠️ Solo aplica filtros si no hubo df_estado
     if filtros:
         area = filtros.get("area", "TODOS")
         fechas = filtros.get("fechas", [])
         turno = filtros.get("turno", "TODOS")
         busqueda = filtros.get("busqueda", "")
-        df = aplicar_filtros_y_guardar_estado(area, fechas, turno, busqueda)
+        df_restaurado = aplicar_filtros_y_guardar_estado(area, fechas, turno, busqueda)
+        return df_restaurado
 
     return df
+
+
+def registrar_historial_busqueda(texto, df_resultado):
+    filtros = obtener_estado_filtros_actual()
+    descripcion = f"Búsqueda realizada: '{texto}'"
+    guardar_en_historial(descripcion, archivos=ULTIMAS_RUTAS_CARGADAS, filtros=filtros, df_estado=df_resultado)
+
 
 

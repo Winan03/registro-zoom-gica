@@ -451,12 +451,12 @@ def calcular_horas_consideradas_vs_reales(grupo, vacios_detectados):
     horas_consideradas = {
         'inicio': primera_entrada.strftime("%H:%M:%S"),
         'fin': ultima_salida.strftime("%H:%M:%S"),
-        'total': str(tiempo_considerado).split('.')[0]
+        'total': str(tiempo_considerado).split(' ')[-1].split('.')[0]
     }
     
     horas_reales = {
         'total_segundos': tiempo_real_segundos,
-        'total_formateado': str(pd.Timedelta(seconds=tiempo_real_segundos)).split('.')[0]
+        'total_formateado': str(pd.Timedelta(seconds=tiempo_real_segundos)).split(' ')[-1].split('.')[0]
     }
     
     return horas_consideradas, horas_reales

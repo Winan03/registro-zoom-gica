@@ -408,31 +408,88 @@ def obtener_dataframe_vacio():
     """Retorna un DataFrame vacío para usar en Flask."""
     return pd.DataFrame()
 
+def detectar_vacios(grupo):
+    """
+    Detecta vacíos entre registros consecutivos (>10 minutos) y retorna una lista de huecos
+    """
+    grupo_ordenado = grupo.sort_values(by='entrada')
+    vacios = []
+    for i in range(1, len(grupo_ordenado)):
+        salida_anterior = grupo_ordenado.iloc[i - 1]['salida']
+        entrada_actual = grupo_ordenado.iloc[i]['entrada']
+        diferencia = entrada_actual - salida_anterior
+        if diferencia.total_seconds() > 600:  # 10 minutos
+            vacios.append({
+                "salida": salida_anterior.strftime("%H:%M:%S"),
+                "reingreso": entrada_actual.strftime("%H:%M:%S"),
+                "duracion": str(diferencia).split('.')[0],  # Remover microsegundos
+                "diferencia_segundos": diferencia.total_seconds()
+            })
+    return vacios
+
+def calcular_horas_consideradas_vs_reales(grupo, vacios_detectados):
+    """
+    Calcula las horas consideradas (rango completo) vs horas reales (descontando vacíos)
+    """
+    if grupo.empty:
+        return {}, {}
+    
+    # Ordenar por entrada
+    grupo_ordenado = grupo.sort_values(by='entrada')
+    
+    # Hora de entrada más temprana y salida más tardía
+    primera_entrada = grupo_ordenado.iloc[0]['entrada']
+    ultima_salida = grupo_ordenado.iloc[-1]['salida']
+    
+    # Calcular tiempo total considerado
+    tiempo_considerado = ultima_salida - primera_entrada
+    
+    # Calcular tiempo real (descontando vacíos)
+    tiempo_vacios = sum([v['diferencia_segundos'] for v in vacios_detectados])
+    tiempo_real_segundos = tiempo_considerado.total_seconds() - tiempo_vacios
+    
+    horas_consideradas = {
+        'inicio': primera_entrada.strftime("%H:%M:%S"),
+        'fin': ultima_salida.strftime("%H:%M:%S"),
+        'total': str(tiempo_considerado).split('.')[0]
+    }
+    
+    horas_reales = {
+        'total_segundos': tiempo_real_segundos,
+        'total_formateado': str(pd.Timedelta(seconds=tiempo_real_segundos)).split('.')[0]
+    }
+    
+    return horas_consideradas, horas_reales
+
 def generar_reporte(df):
     if df.empty:
         return pd.DataFrame()
-
+    
     df = df.copy()
-
     df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce').dt.date
-
     df.sort_values(by='fecha', inplace=True)
     reporte_final = []
-
+    
     for fecha, grupo_fecha in df.groupby('fecha'):
         reporte_final.append({
             '#': '',
             'Nombre Practicante': f'📅 Fecha de Reporte: {fecha.strftime("%d/%m/%Y")}',
             'Turno Mañana': '', 'Turno Tarde': '',
-            'Horas T.': '', 'Minutos Totales': '', 'Área': '', 'fecha': fecha
+            'Horas T.': '', 'Minutos Totales': '', 'Área': '',
+            'Estado': '',  # Nueva columna
+            'vacios_info': [],  # Info adicional para vacíos
+            'fecha': fecha
         })
-
+        
         grupo_fecha = grupo_fecha[~grupo_fecha['nombre'].str.startswith('📅 Fecha de Reporte')]
-
+        
         for nombre, grupo in grupo_fecha.groupby('nombre'):
+            # Detectar vacíos para este practicante
+            vacios_detectados = detectar_vacios(grupo)
+            
             turno_manana = {"entrada": None, "salida": None}
             turno_tarde = {"entrada": None, "salida": None}
-
+            
             for _, row in grupo.iterrows():
                 if row['entrada'].time() < datetime.strptime("14:00", "%H:%M").time():
                     turno_manana["entrada"] = min(turno_manana["entrada"], row['entrada']) if turno_manana["entrada"] else row['entrada']
@@ -440,25 +497,38 @@ def generar_reporte(df):
                 else:
                     turno_tarde["entrada"] = min(turno_tarde["entrada"], row['entrada']) if turno_tarde["entrada"] else row['entrada']
                     turno_tarde["salida"] = max(turno_tarde["salida"], row['salida']) if turno_tarde["salida"] else row['salida']
-
+            
             horas_t, minutos_total = calcular_total_horas(grupo)
-
+            
+            # Calcular horas consideradas vs horas reales
+            horas_consideradas, horas_reales = calcular_horas_consideradas_vs_reales(grupo, vacios_detectados)
+            
             def formatear_turno(turno):
                 if turno["entrada"] and turno["salida"]:
                     return f"{turno['entrada'].strftime('%I:%M %p')} - {turno['salida'].strftime('%I:%M %p')}"
                 return "NO INGRESO"
-
+            
+            # Determinar el estado basado en vacíos detectados
+            estado_icono = "✅" if not vacios_detectados else "⚠️"
+            
             reporte_final.append({
-                '#': len(reporte_final),
+                '#': len([r for r in reporte_final if r['#'] != '']),
                 'Nombre Practicante': nombre.upper(),
                 'Turno Mañana': formatear_turno(turno_manana),
                 'Turno Tarde': formatear_turno(turno_tarde),
                 'Horas T.': horas_t,
                 'Minutos Totales': minutos_total,
                 'Área': grupo['Área'].iloc[0],
+                'Estado': estado_icono,
+                'vacios_info': {
+                    'vacios': vacios_detectados,
+                    'horas_consideradas': horas_consideradas,
+                    'horas_reales': horas_reales,
+                    'nombre': nombre.upper()
+                },
                 'fecha': fecha
             })
-
+    
     return pd.DataFrame(reporte_final)
 
 
@@ -865,20 +935,52 @@ def limpiar_filtros_y_busqueda():
 
 def mostrar_tabla_agrupada_por_fecha(df):
     """
-    Convierte un DataFrame generado en HTML agrupado por fecha. Devuelve HTML para tabla.
+    Convierte un DataFrame en HTML agrupado por fecha con la nueva columna de Estado
     """
     if df.empty:
         return "<p>No hay datos para mostrar.</p>"
 
-    html = "<table border='1' cellpadding='5' cellspacing='0'>"
-    html += "<thead><tr><th>#</th><th>Nombre Practicante</th><th>Turno Mañana</th><th>Turno Tarde</th><th>Horas T.</th><th>Minutos Totales</th><th>Área</th></tr></thead><tbody>"
+    html = """
+    <table border='1' cellpadding='5' cellspacing='0'>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Nombre Practicante</th>
+                <th>Turno Mañana</th>
+                <th>Turno Tarde</th>
+                <th>Horas T.</th>
+                <th>Minutos Totales</th>
+                <th>Área</th>
+                <th>Control</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
 
-    for _, row in df.iterrows():
+    for index, row in df.iterrows():
         if str(row['#']).strip() == '':
-            html += f"<tr style='background-color:#DCE6F1;font-weight:bold'><td colspan='7'>{row['Nombre Practicante']}</td></tr>"
+            # Fila de fecha
+            html += f"<tr style='background-color:#DCE6F1;font-weight:bold'><td colspan='8'>{row['Nombre Practicante']}</td></tr>"
         else:
+            # Fila de datos
+            estado_celda = ""
+            if row['Estado'] == "⚠️":
+                # Crear datos para el modal
+                vacios_info = row.get('vacios_info', {})
+                vacios_json = json.dumps(vacios_info) if vacios_info else '{}'
+                estado_celda = f"<span class='warning-icon' onclick='mostrarModalVacios({vacios_json.replace(chr(39), chr(34))})' style='cursor:pointer; font-size:20px;' title='Detectados vacíos de tiempo'>⚠️</span>"
+            else:
+                estado_celda = f"<span style='font-size:20px; color:green;' title='Sin vacíos detectados'>✅</span>"
+            
             html += "<tr>"
-            html += f"<td>{row['#']}</td><td>{row['Nombre Practicante']}</td><td>{row['Turno Mañana']}</td><td>{row['Turno Tarde']}</td><td>{row['Horas T.']}</td><td>{row['Minutos Totales']}</td><td>{row['Área']}</td>"
+            html += f"<td>{row['#']}</td>"
+            html += f"<td>{row['Nombre Practicante']}</td>"
+            html += f"<td>{row['Turno Mañana']}</td>"
+            html += f"<td>{row['Turno Tarde']}</td>"
+            html += f"<td>{row['Horas T.']}</td>"
+            html += f"<td>{row['Minutos Totales']}</td>"
+            html += f"<td>{row['Área']}</td>"
+            html += f"<td style='text-align:center;'>{estado_celda}</td>"
             html += "</tr>"
 
     html += "</tbody></table>"

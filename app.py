@@ -197,5 +197,35 @@ def restaurar_historial():
         traceback.print_exc()
         return "Error interno", 500
 
+@app.route('/obtener_info_vacios/<int:indice>')
+def obtener_info_vacios(indice):
+    """
+    Endpoint para obtener información detallada de vacíos de un registro específico
+    """
+    try:
+        if procesamiento.df_actual_filtrado.empty:
+            return jsonify({'error': 'No hay datos disponibles'}), 400
+        
+        # Buscar el registro por índice
+        registro = None
+        for _, row in procesamiento.df_actual_filtrado.iterrows():
+            if str(row.get('#', '')).strip() != '' and int(row['#']) == indice:
+                registro = row
+                break
+        
+        if registro is None:
+            return jsonify({'error': 'Registro no encontrado'}), 404
+        
+        vacios_info = registro.get('vacios_info', {})
+        
+        if not vacios_info or not vacios_info.get('vacios'):
+            return jsonify({'error': 'No hay información de vacíos disponible'}), 400
+        
+        return jsonify(vacios_info)
+        
+    except Exception as e:
+        print(f"❌ Error en obtener_info_vacios: {e}")
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1030,7 +1030,10 @@ def restaurar_registro_desde_historial(registro_dict):
 
         # Evita reprocesar, ya es un reporte
         df_actual_filtrado = df.copy()
-        return df  # ✅ Este df ya se puede mostrar en la tabla
+
+    if 'nombre' not in df.columns and 'Nombre Practicante' in df.columns:
+            # Ya es un reporte final, lo retornamos directamente
+        return df
 
     # ⚠️ Solo aplica filtros si no hubo df_estado
     if filtros:

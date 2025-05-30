@@ -1,7 +1,7 @@
 [
   {
     "descripcion": "Carga de archivos: MAYO_29.csv",
-    "fecha": "2025-05-30 18:11:01",
+    "fecha": "2025-05-30 18:30:25",
     "archivos": [
       "C:\\Users\\PC\\AppData\\Local\\Temp\\MAYO_29.csv"
     ],
@@ -9,15 +9,15 @@
     "df_estado": []
   },
   {
-    "descripcion": "Filtros aplicados: Área=TODOS, Fechas=['10/05/2025'], Turno=TODOS, Búsqueda=NINGUNA",
-    "fecha": "2025-05-30 18:11:14",
+    "descripcion": "Filtros aplicados: Área=TODOS, Fechas=['07/05/2025'], Turno=TODOS, Búsqueda=NINGUNA",
+    "fecha": "2025-05-30 18:30:35",
     "archivos": [
       "C:\\Users\\PC\\AppData\\Local\\Temp\\MAYO_29.csv"
     ],
     "filtros_aplicados": {
       "area": "TODOS",
       "fechas": [
-        "10/05/2025"
+        "07/05/2025"
       ],
       "turno": "TODOS",
       "busqueda": ""

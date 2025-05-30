@@ -1,112 +1,27 @@
 [
   {
-    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V5.csv",
-    "fecha": "2025-05-23 19:19:04",
+    "descripcion": "Carga de archivos: MAYO_29.csv",
+    "fecha": "2025-05-30 18:11:01",
     "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V5.csv"
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\MAYO_29.csv"
     ],
     "filtros_aplicados": {},
     "df_estado": []
   },
   {
-    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V4.csv",
-    "fecha": "2025-05-23 19:19:19",
+    "descripcion": "Filtros aplicados: Área=TODOS, Fechas=['10/05/2025'], Turno=TODOS, Búsqueda=NINGUNA",
+    "fecha": "2025-05-30 18:11:14",
     "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V4.csv"
-    ],
-    "filtros_aplicados": {},
-    "df_estado": []
-  },
-  {
-    "descripcion": "Búsqueda realizada: 'gonzalo'",
-    "fecha": "2025-05-23 19:19:26",
-    "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V4.csv"
+      "C:\\Users\\PC\\AppData\\Local\\Temp\\MAYO_29.csv"
     ],
     "filtros_aplicados": {
-      "area": "PRACTICANTES ADMINISTRACION",
-      "fechas": [],
+      "area": "TODOS",
+      "fechas": [
+        "10/05/2025"
+      ],
       "turno": "TODOS",
-      "busqueda": "gonzalo"
+      "busqueda": ""
     },
-    "df_estado": [
-      {
-        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "gonzalo silva",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "gonzalo silva",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "gonzalo silva",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "gonzalo silva",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "gonzalo silva",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "gonzalo silva",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
-        "entrada": "2025-04-28",
-        "salida": "2025-04-28",
-        "fecha": "2025-04-28",
-        "nombre_normalizado": "gonzalo silva",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "GONZALO ARTEMIO SILVA MONTENEGRO",
-        "entrada": "2025-04-28",
-        "salida": "2025-04-28",
-        "fecha": "2025-04-28",
-        "nombre_normalizado": "gonzalo silva",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      }
-    ]
-  },
-  {
-    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv, Plantilla_de_Prueba_V4.csv",
-    "fecha": "2025-05-23 19:19:44",
-    "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv",
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V4.csv"
-    ],
-    "filtros_aplicados": {},
     "df_estado": []
   }
 ]

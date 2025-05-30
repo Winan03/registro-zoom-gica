@@ -10,6 +10,7 @@ from openpyxl import load_workbook
 import json
 import os
 from datetime import date
+from rapidfuzz import process, fuzz
 
 # Constantes y configuraciones
 titulos_academicos = ["mtr", "msc", "lic", "sr", "srta", "dra", "est", "prof", "doc", "aux"]
@@ -221,9 +222,11 @@ def agrupar_nombres_similares(df):
     df['nombre'] = df['nombre_normalizado'].map(mapeo_final).fillna(df['nombre_normalizado']).str.upper()
     return df
 
+
 def obtener_nombre_completo_bd(df):
     if 'nombre' not in df.columns:
         return df
+
     mapa_nombres_completos = {}
     for p in data_json:
         nombre_norm = normalizar_nombre(p['nombre'])
@@ -231,18 +234,25 @@ def obtener_nombre_completo_bd(df):
         partes = nombre_norm.split()
         if len(partes) > 1:
             mapa_nombres_completos[' '.join(reversed(partes))] = p['nombre']
+
+    keys_lista = list(mapa_nombres_completos.keys())
+
     def encontrar_nombre_completo(nombre):
         nombre_norm = normalizar_nombre(nombre)
         if nombre_norm in mapa_nombres_completos:
             return mapa_nombres_completos[nombre_norm].upper()
+
         palabras = set(nombre_norm.split())
         for k, v in mapa_nombres_completos.items():
             if len(palabras.intersection(set(k.split()))) >= 2:
                 return v.upper()
-        matches = get_close_matches(nombre_norm, list(mapa_nombres_completos.keys()), n=1, cutoff=0.6)
-        if matches:
-            return mapa_nombres_completos[matches[0]].upper()
+
+        match = process.extractOne(nombre_norm, keys_lista, scorer=fuzz.ratio, score_cutoff=60)
+        if match:
+            return mapa_nombres_completos[match[0]].upper()
+
         return nombre.upper()
+
     df['nombre'] = df['nombre'].apply(encontrar_nombre_completo)
     return df
 

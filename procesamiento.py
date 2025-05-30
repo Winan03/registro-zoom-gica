@@ -40,6 +40,53 @@ estado_filtros = {
     'busqueda': ''
 }
 
+def normalizar_nombre(nombre):
+    """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
+    # Add comprehensive type checking
+    if not isinstance(nombre, str):
+        if nombre is None:
+            return ""
+        # Convert to string if possible, otherwise return empty string
+        try:
+            nombre = str(nombre)
+        except (ValueError, TypeError):
+            return ""
+    
+    # Check if string is empty or only whitespace
+    if not nombre or not nombre.strip():
+        return ""
+    
+    nombre = nombre.lower()
+    nombre_original = nombre
+
+    # Quitar paréntesis con contenido
+    nombre = re.sub(r'\(.*?\)', '', nombre)
+
+    # Eliminar una vez prefijos seguros (solo si están claramente al inicio con guión o espacio)
+    nombre = re.sub(regex_prefijos, '', nombre)
+
+    # Evitar errores como "ingrid", "luis", etc.
+    nombre = re.sub(r'^[a-z]{2,6}[\-\_]', '', nombre)
+
+    # Normalizar tildes y símbolos
+    nombre = unicodedata.normalize('NFD', nombre)
+    nombre = ''.join(c for c in nombre if unicodedata.category(c) != 'Mn')
+
+    # Eliminar caracteres raros
+    nombre = re.sub(r'[^a-z\s]', '', nombre)
+    nombre = re.sub(r'\s+', ' ', nombre).strip()
+
+    # Restaurar si quedó vacío
+    if not nombre:
+        return nombre_original.lower()
+
+    # Reducir nombres muy largos a 3 componentes
+    palabras = nombre.split()
+    if len(palabras) > 4:
+        palabras = [palabras[0]] + palabras[-2:]
+
+    return ' '.join(palabras)
+
 # Cargar JSON de practicantes
 url_json = "https://bucketreportezoom.s3.us-east-1.amazonaws.com/ultimo.json"
 try:
@@ -91,52 +138,6 @@ except Exception as e:
     data_json = []
     json_areas = {}
 
-def normalizar_nombre(nombre):
-    """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
-    # Add comprehensive type checking
-    if not isinstance(nombre, str):
-        if nombre is None:
-            return ""
-        # Convert to string if possible, otherwise return empty string
-        try:
-            nombre = str(nombre)
-        except (ValueError, TypeError):
-            return ""
-    
-    # Check if string is empty or only whitespace
-    if not nombre or not nombre.strip():
-        return ""
-    
-    nombre = nombre.lower()
-    nombre_original = nombre
-
-    # Quitar paréntesis con contenido
-    nombre = re.sub(r'\(.*?\)', '', nombre)
-
-    # Eliminar una vez prefijos seguros (solo si están claramente al inicio con guión o espacio)
-    nombre = re.sub(regex_prefijos, '', nombre)
-
-    # Evitar errores como "ingrid", "luis", etc.
-    nombre = re.sub(r'^[a-z]{2,6}[\-\_]', '', nombre)
-
-    # Normalizar tildes y símbolos
-    nombre = unicodedata.normalize('NFD', nombre)
-    nombre = ''.join(c for c in nombre if unicodedata.category(c) != 'Mn')
-
-    # Eliminar caracteres raros
-    nombre = re.sub(r'[^a-z\s]', '', nombre)
-    nombre = re.sub(r'\s+', ' ', nombre).strip()
-
-    # Restaurar si quedó vacío
-    if not nombre:
-        return nombre_original.lower()
-
-    # Reducir nombres muy largos a 3 componentes
-    palabras = nombre.split()
-    if len(palabras) > 4:
-        palabras = [palabras[0]] + palabras[-2:]
-
-    return ' '.join(palabras)
 
 def agrupar_nombres_similares(df):
     """

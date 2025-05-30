@@ -43,27 +43,68 @@ estado_filtros = {
 # Cargar JSON de practicantes
 url_json = "https://bucketreportezoom.s3.us-east-1.amazonaws.com/ultimo.json"
 try:
-    response = requests.get(url_json)
+    response = requests.get(url_json, timeout=10)  # Add timeout
     response.raise_for_status()
     data_json = response.json()
     json_areas = {}
+    json_areas_normalizado = {}
+
     for p in data_json:
-        nombre_norm = unicodedata.normalize('NFD', p['nombre']).encode('ascii', 'ignore').decode('utf-8').lower().strip()
-        partes = nombre_norm.split()
-        if len(partes) < 3:
+        # Add validation for each record
+        if not isinstance(p, dict):
             continue
-        json_areas[nombre_norm] = p['area']
-        if len(partes) > 1:
-            nombre_invertido = ' '.join(reversed(partes))
-            json_areas[nombre_invertido] = p['area']
+            
+        nombre = p.get('nombre')
+        area = p.get('area')
+        
+        # Skip records with invalid data
+        if not isinstance(nombre, str) or not nombre.strip():
+            continue
+        if not isinstance(area, str) or not area.strip():
+            continue
+            
+        try:
+            nombre_norm = normalizar_nombre(nombre)
+            if nombre_norm:  # Only add if normalization was successful
+                json_areas[nombre_norm] = area
+                json_areas_normalizado[nombre_norm] = area
+                
+                partes = nombre_norm.split()
+                if len(partes) > 1:
+                    nombre_invertido = ' '.join(reversed(partes))
+                    json_areas[nombre_invertido] = area
+                    json_areas_normalizado[nombre_invertido] = area
+        except Exception as e:
+            print(f"Error processing record {p}: {e}")
+            continue
+            
+except requests.RequestException as e:
+    print(f"Error al cargar JSON (network): {e}")
+    data_json = []
+    json_areas = {}
+except json.JSONDecodeError as e:
+    print(f"Error al cargar JSON (decode): {e}")
+    data_json = []
+    json_areas = {}
 except Exception as e:
-    print(f"Error al cargar JSON: {e}")
+    print(f"Error al cargar JSON (general): {e}")
     data_json = []
     json_areas = {}
 
 def normalizar_nombre(nombre):
     """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
+    # Add comprehensive type checking
     if not isinstance(nombre, str):
+        if nombre is None:
+            return ""
+        # Convert to string if possible, otherwise return empty string
+        try:
+            nombre = str(nombre)
+        except (ValueError, TypeError):
+            return ""
+    
+    # Check if string is empty or only whitespace
+    if not nombre or not nombre.strip():
         return ""
     
     nombre = nombre.lower()
@@ -257,76 +298,176 @@ def obtener_nombre_completo_bd(df):
     return df
 
 def buscar_area(nombre_practicante):
-    """Busca el área de un practicante incluso si el nombre está parcial o desordenado."""
-    nombre_norm = normalizar_nombre(nombre_practicante)
-    
-    # Asegurarse de que json_areas esté disponible (usando variable global)
-    global json_areas
-    
-    # 1. Intentar coincidencia exacta
-    if nombre_norm in json_areas:
-        return json_areas[nombre_norm]
-    
-    # 2. Comparar con cada nombre en el json usando diferentes métodos
-    for nombre_json, area in json_areas.items():
-        nombre_json_norm = normalizar_nombre(nombre_json)
-        
-        # Comprobar si todas las palabras importantes están incluidas
-        palabras_input = set(nombre_norm.split())
-        palabras_json = set(nombre_json_norm.split())
-        
-        # Si hay una gran coincidencia en las palabras (más del 70%)
-        palabras_comunes = palabras_input & palabras_json
-        total_palabras = min(len(palabras_input), len(palabras_json))
-        
-        if total_palabras > 0 and len(palabras_comunes) / total_palabras >= 0.7:
-            return area
-        
-        # Coincidencia por apellidos (suponiendo que están al final)
-        if len(palabras_input) >= 2 and len(palabras_json) >= 2:
-            apellidos_input = ' '.join(sorted(list(palabras_input))[-2:])
-            apellidos_json = ' '.join(sorted(list(palabras_json))[-2:])
-
-            if apellidos_input == apellidos_json:
-                return area
-        
-        # Validación adicional: Primer nombre y primer apellido coinciden, pero segundo apellido es diferente
-        nombres_input = list(palabras_input)
-        nombres_json = list(palabras_json)
-        
-        if len(nombres_input) >= 2 and len(nombres_json) >= 2:
-            primer_nombre_input, primer_apellido_input = nombres_input[0], nombres_input[1]
-            primer_nombre_json, primer_apellido_json = nombres_json[0], nombres_json[1]
+    """Busca el área de un practicante con optimizaciones para evitar bloqueos o exceso de memoria."""
+    try:
+        # Verificación inicial para entradas inválidas
+        if not isinstance(nombre_practicante, str) or not nombre_practicante.strip():
+            return 'OTROS'
             
-            if primer_nombre_input == primer_nombre_json and primer_apellido_input == primer_apellido_json:
-                # Verifica el segundo apellido si existe
-                if len(nombres_input) > 2 and len(nombres_json) > 2:
-                    segundo_apellido_input = nombres_input[2]  # Usamos índice 2 porque es el tercer elemento
-                    segundo_apellido_json = nombres_json[2]  # Similar aquí
-                    
-                    if segundo_apellido_input != segundo_apellido_json:
-                        continue
-
-            # Si los nombres coinciden pero el segundo apellido no, no agrupar
-            if len(nombres_input) > 2 and len(nombres_json) > 2:
-                if nombres_input[2] != nombres_json[2]:
+        nombre_norm = normalizar_nombre(nombre_practicante)
+        
+        # Verificación si la normalización falló
+        if not nombre_norm or not nombre_norm.strip():
+            return 'OTROS'
+        
+        # Verifica que json_areas esté correctamente cargado
+        global json_areas
+        if not json_areas or not isinstance(json_areas, dict):
+            return 'OTROS'
+        
+        # 1. Coincidencia exacta (la más rápida)
+        if nombre_norm in json_areas:
+            return json_areas[nombre_norm]
+        
+        # 2. Coincidencia basada en palabras comunes (limitada para evitar sobrecarga)
+        palabras_input = set(nombre_norm.split())
+        if not palabras_input:
+            return 'OTROS'
+        
+        # Limitar a las primeras 50 entradas del JSON
+        items_to_check = list(json_areas.items())[:50]
+        
+        for nombre_json, area in items_to_check:
+            if not isinstance(nombre_json, str) or not nombre_json.strip():
+                continue
+                
+            try:
+                nombre_json_norm = normalizar_nombre(nombre_json)
+                if not nombre_json_norm:
                     continue
+                
+                palabras_json = set(nombre_json_norm.split())
+                if not palabras_json:
+                    continue
+                
+                palabras_comunes = palabras_input & palabras_json
+                total_palabras = min(len(palabras_input), len(palabras_json))
+                
+                if total_palabras > 0 and len(palabras_comunes) / total_palabras >= 0.7:
+                    return area
+                
+                # Coincidencia por último apellido (rápida)
+                if len(palabras_input) >= 2 and len(palabras_json) >= 2:
+                    if list(palabras_input)[-1] == list(palabras_json)[-1]:
+                        return area
+                        
+            except Exception:
+                # Saltar entradas problemáticas sin interrumpir
+                continue
+        
+        # 3. Coincidencia difusa con difflib (último recurso, limitado)
+        try:
+            valid_keys = []
+            count = 0
+            for key in json_areas.keys():
+                if count >= 20:
+                    break
+                if isinstance(key, str) and key.strip():
+                    normalized_key = normalizar_nombre(key)
+                    if normalized_key and len(normalized_key.split()) >= 2:
+                        valid_keys.append(normalized_key)
+                        count += 1
+            
+            if valid_keys:
+                matches = difflib.get_close_matches(
+                    nombre_norm,
+                    valid_keys,
+                    n=1,
+                    cutoff=0.8  # Alta precisión
+                )
+                
+                if matches:
+                    for nombre_json, area in json_areas.items():
+                        if isinstance(nombre_json, str) and normalizar_nombre(nombre_json) == matches[0]:
+                            return area
+                            
+        except Exception:
+            pass
+        
+        return 'OTROS'
+        
+    except Exception as e:
+        print(f"Error en buscar_area para '{nombre_practicante}': {e}")
+        return 'OTROS'
+    
+def asignar_areas_batch(nombres_series):
+    """
+    Procesa múltiples nombres en lote para mejorar el rendimiento.
+    Utiliza esta función en lugar de aplicar buscar_area de uno en uno.
+    """
+    global json_areas
 
-    # 3. Usar difflib para encontrar coincidencias cercanas
-    matches = difflib.get_close_matches(
-        nombre_norm,
-        [normalizar_nombre(key) for key in json_areas.keys()],
-        n=1,
-        cutoff=0.6  # Reducir para mayor tolerancia
-    )
-    
-    if matches:
-        # Buscar el nombre original que coincide con el normalizado
+    if not json_areas:
+        return ['OTROS'] * len(nombres_series)
+
+    # Preprocesar una sola vez los nombres del JSON
+    json_normalizado = {}
+    try:
         for nombre_json, area in json_areas.items():
-            if normalizar_nombre(nombre_json) == matches[0]:
-                return area
-    
-    return 'OTROS' 
+            if isinstance(nombre_json, str) and nombre_json.strip():
+                try:
+                    nombre_norm = normalizar_nombre(nombre_json)
+                    if nombre_norm:
+                        json_normalizado[nombre_norm] = area
+                except:
+                    continue
+    except Exception as e:
+        print(f"Error al preprocesar áreas desde el JSON: {e}")
+        return ['OTROS'] * len(nombres_series)
+
+    resultados = []
+
+    for nombre in nombres_series:
+        try:
+            if not isinstance(nombre, str) or not nombre.strip():
+                resultados.append('OTROS')
+                continue
+
+            nombre_norm = normalizar_nombre(nombre)
+            if not nombre_norm:
+                resultados.append('OTROS')
+                continue
+
+            # 1. Coincidencia exacta
+            if nombre_norm in json_normalizado:
+                resultados.append(json_normalizado[nombre_norm])
+                continue
+
+            # 2. Coincidencia por palabras comunes
+            palabras_input = set(nombre_norm.split())
+            area_encontrada = 'OTROS'
+
+            # Limitar a las primeras 100 entradas
+            items_checked = 0
+            for nombre_json_norm, area in json_normalizado.items():
+                if items_checked >= 100:
+                    break
+
+                try:
+                    palabras_json = set(nombre_json_norm.split())
+
+                    interseccion = palabras_input & palabras_json
+                    if len(interseccion) >= 2:
+                        area_encontrada = area
+                        break
+                    elif len(interseccion) > 0:
+                        total_palabras = min(len(palabras_input), len(palabras_json))
+                        if total_palabras > 0 and len(interseccion) / total_palabras >= 0.7:
+                            area_encontrada = area
+                            break
+
+                except:
+                    pass
+
+                items_checked += 1
+
+            resultados.append(area_encontrada)
+
+        except Exception as e:
+            print(f"Error al procesar el nombre '{nombre}': {e}")
+            resultados.append('OTROS')
+
+    return resultados
 
 
 def calcular_total_horas(grupo):
@@ -395,7 +536,7 @@ def procesar_excel(file_paths):
     df_total['nombre_normalizado'] = df_total['nombre'].apply(normalizar_nombre)
     df_total = agrupar_nombres_similares(df_total)
     df_total = obtener_nombre_completo_bd(df_total)
-    df_total['Área'] = df_total['nombre'].apply(buscar_area)
+    df_total['Área'] = asignar_areas_batch(df_total['nombre'].tolist())
 
     nombre_original_df = df_total.copy()
     areas_disponibles = ['TODOS'] + sorted(df_total['Área'].unique().tolist())

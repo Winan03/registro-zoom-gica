@@ -40,6 +40,10 @@ estado_filtros = {
     'busqueda': ''
 }
 
+# Historial de búsquedas y filtros (funciones faltantes)
+historial_busquedas = []
+historial_filtros = []
+
 def normalizar_nombre(nombre):
     """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
     # Add comprehensive type checking
@@ -853,10 +857,16 @@ def buscar_por_nombre(texto_busqueda, df_original):
         print("⚠️ DataFrame original está vacío")
         return pd.DataFrame()
     
+    # 🔧 VERIFICAR SI LA COLUMNA 'nombre' EXISTE
+    if 'nombre' not in df_original.columns:
+        print("❌ ERROR: Columna 'nombre' no encontrada en el DataFrame")
+        print(f"📋 Columnas disponibles: {list(df_original.columns)}")
+        return pd.DataFrame()
+    
     # Limpiar y preparar texto de búsqueda
     texto_busqueda = texto_busqueda.strip()
     texto_busqueda_limpio = quitar_tildes_y_ñ(texto_busqueda.lower())
-    palabras_clave = [p for p in texto_busqueda_limpio.split() if len(p) > 1]  # Filtrar palabras muy cortas
+    palabras_clave = [p for p in texto_busqueda_limpio.split() if len(p) > 1]
     
     print(f"🔍 Búsqueda: '{texto_busqueda}' -> '{texto_busqueda_limpio}'")
     print(f"📊 Registros disponibles: {len(df_original)}")
@@ -868,6 +878,12 @@ def buscar_por_nombre(texto_busqueda, df_original):
     
     # Crear copia del DataFrame
     df_trabajo = df_original.copy()
+    
+    # 🔧 DEBUGGING: Mostrar algunos nombres para verificar
+    print("📝 Primeros 5 nombres en el DataFrame:")
+    nombres_muestra = df_trabajo['nombre'].dropna().head(5).tolist()
+    for i, nombre in enumerate(nombres_muestra, 1):
+        print(f"   {i}. {nombre}")
     
     # Función de coincidencia mejorada
     def coincide_busqueda(nombre):
@@ -881,6 +897,10 @@ def buscar_por_nombre(texto_busqueda, df_original):
         for palabra in palabras_clave:
             if palabra in nombre_limpio:
                 coincidencias += 1
+        
+        # Debug: mostrar coincidencias para los primeros registros
+        if len(df_trabajo[df_trabajo['nombre'] == nombre]) <= 5:
+            print(f"   🔍 '{nombre}' -> '{nombre_limpio}' | Coincidencias: {coincidencias}/{len(palabras_clave)}")
         
         # Si todas las palabras coinciden, es una búsqueda perfecta
         if coincidencias == len(palabras_clave):
@@ -897,10 +917,14 @@ def buscar_por_nombre(texto_busqueda, df_original):
         return False
     
     # Aplicar filtro principal
-    mask_principal = df_trabajo['nombre'].apply(coincide_busqueda)
-    df_filtrado = df_trabajo[mask_principal].copy()
-    
-    print(f"✅ Resultados con filtro principal: {len(df_filtrado)}")
+    try:
+        mask_principal = df_trabajo['nombre'].apply(coincide_busqueda)
+        df_filtrado = df_trabajo[mask_principal].copy()
+        
+        print(f"✅ Resultados con filtro principal: {len(df_filtrado)}")
+    except Exception as e:
+        print(f"❌ Error en filtro principal: {e}")
+        return pd.DataFrame()
     
     # Si no hay resultados, intentar búsqueda más flexible
     if df_filtrado.empty:
@@ -922,46 +946,78 @@ def buscar_por_nombre(texto_busqueda, df_original):
                     # Búsqueda por similitud de secuencia
                     for parte_nombre in nombre_limpio.split():
                         if len(parte_nombre) >= 3:
-                            similitud = SequenceMatcher(None, palabra, parte_nombre).ratio()
-                            if similitud >= 0.8:  # 80% de similitud
-                                return True
+                            try:
+                                similitud = SequenceMatcher(None, palabra, parte_nombre).ratio()
+                                if similitud >= 0.8:  # 80% de similitud
+                                    return True
+                            except Exception:
+                                continue
             
             return False
         
-        mask_flexible = df_trabajo['nombre'].apply(busqueda_flexible)
-        df_filtrado = df_trabajo[mask_flexible].copy()
-        
-        print(f"🎯 Resultados con búsqueda flexible: {len(df_filtrado)}")
+        try:
+            mask_flexible = df_trabajo['nombre'].apply(busqueda_flexible)
+            df_filtrado = df_trabajo[mask_flexible].copy()
+            
+            print(f"🎯 Resultados con búsqueda flexible: {len(df_filtrado)}")
+        except Exception as e:
+            print(f"❌ Error en búsqueda flexible: {e}")
+            return pd.DataFrame()
     
     # Si aún no hay resultados, mostrar información de debug
     if df_filtrado.empty:
         print("❌ No se encontraron resultados")
         print("📝 Algunos nombres disponibles para referencia:")
         
-        nombres_unicos = df_trabajo['nombre'].unique()
-        nombres_muestra = nombres_unicos[:10] if len(nombres_unicos) > 10 else nombres_unicos
-        
-        for i, nombre in enumerate(nombres_muestra, 1):
-            print(f"   {i}. {nombre}")
-        
-        if len(nombres_unicos) > 10:
-            print(f"   ... y {len(nombres_unicos) - 10} nombres más")
+        try:
+            nombres_unicos = df_trabajo['nombre'].dropna().unique()
+            nombres_muestra = nombres_unicos[:10] if len(nombres_unicos) > 10 else nombres_unicos
+            
+            for i, nombre in enumerate(nombres_muestra, 1):
+                print(f"   {i}. {nombre}")
+            
+            if len(nombres_unicos) > 10:
+                print(f"   ... y {len(nombres_unicos) - 10} nombres más")
+        except Exception as e:
+            print(f"❌ Error mostrando nombres de muestra: {e}")
     
     return df_filtrado
 
 # Función principal que debes usar en tu ruta Flask
 def buscar_y_generar_reporte_con_estado(texto_busqueda, df_original):
+    """Función principal que debes usar en tu ruta Flask"""
     global df_actual_filtrado
     
+    print(f"🔍 Iniciando búsqueda con texto: '{texto_busqueda}'")
+    print(f"📊 DataFrame original tiene {len(df_original)} registros")
+    
+    # Actualizar estado de filtros
     actualizar_estado_filtros(busqueda=texto_busqueda)
+    
+    # Realizar búsqueda
     df_filtrado = buscar_por_nombre(texto_busqueda, df_original)
-    df_reporte = generar_reporte(df_filtrado)
-    df_actual_filtrado = df_reporte.copy()
-
-    # ✅ Aquí aseguras que se registre correctamente
-    registrar_historial_busqueda(texto_busqueda, df_filtrado)
-
-    return df_reporte
+    
+    print(f"🎯 Búsqueda completada. Registros encontrados: {len(df_filtrado)}")
+    
+    # Generar reporte si hay resultados
+    if not df_filtrado.empty:
+        df_reporte = generar_reporte(df_filtrado)
+        df_actual_filtrado = df_reporte.copy()
+        
+        # Registrar en historial
+        registrar_historial_busqueda(texto_busqueda, df_filtrado)
+        
+        print(f"✅ Reporte generado exitosamente con {len(df_reporte)} filas")
+        return df_reporte
+    else:
+        print("❌ No se encontraron resultados para la búsqueda")
+        df_vacio = pd.DataFrame()
+        df_actual_filtrado = df_vacio
+        
+        # Aún así registrar la búsqueda
+        registrar_historial_busqueda(texto_busqueda, df_vacio)
+        
+        return df_vacio
 
 
 def actualizar_estado_filtros(area=None, fechas=None, turno=None, busqueda=None):

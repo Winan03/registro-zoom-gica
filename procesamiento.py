@@ -40,57 +40,6 @@ estado_filtros = {
     'busqueda': ''
 }
 
-# Historial de búsquedas y filtros (funciones faltantes)
-historial_busquedas = []
-historial_filtros = []
-
-def normalizar_nombre(nombre):
-    """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
-    # Add comprehensive type checking
-    if not isinstance(nombre, str):
-        if nombre is None:
-            return ""
-        # Convert to string if possible, otherwise return empty string
-        try:
-            nombre = str(nombre)
-        except (ValueError, TypeError):
-            return ""
-    
-    # Check if string is empty or only whitespace
-    if not nombre or not nombre.strip():
-        return ""
-    
-    nombre = nombre.lower()
-    nombre_original = nombre
-
-    # Quitar paréntesis con contenido
-    nombre = re.sub(r'\(.*?\)', '', nombre)
-
-    # Eliminar una vez prefijos seguros (solo si están claramente al inicio con guión o espacio)
-    nombre = re.sub(regex_prefijos, '', nombre)
-
-    # Evitar errores como "ingrid", "luis", etc.
-    nombre = re.sub(r'^[a-z]{2,6}[\-\_]', '', nombre)
-
-    # Normalizar tildes y símbolos
-    nombre = unicodedata.normalize('NFD', nombre)
-    nombre = ''.join(c for c in nombre if unicodedata.category(c) != 'Mn')
-
-    # Eliminar caracteres raros
-    nombre = re.sub(r'[^a-z\s]', '', nombre)
-    nombre = re.sub(r'\s+', ' ', nombre).strip()
-
-    # Restaurar si quedó vacío
-    if not nombre:
-        return nombre_original.lower()
-
-    # Reducir nombres muy largos a 3 componentes
-    palabras = nombre.split()
-    if len(palabras) > 4:
-        palabras = [palabras[0]] + palabras[-2:]
-
-    return ' '.join(palabras)
-
 # Cargar JSON de practicantes
 url_json = "https://bucketreportezoom.s3.us-east-1.amazonaws.com/ultimo.json"
 try:
@@ -142,6 +91,52 @@ except Exception as e:
     data_json = []
     json_areas = {}
 
+def normalizar_nombre(nombre):
+    """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
+    # Add comprehensive type checking
+    if not isinstance(nombre, str):
+        if nombre is None:
+            return ""
+        # Convert to string if possible, otherwise return empty string
+        try:
+            nombre = str(nombre)
+        except (ValueError, TypeError):
+            return ""
+    
+    # Check if string is empty or only whitespace
+    if not nombre or not nombre.strip():
+        return ""
+    
+    nombre = nombre.lower()
+    nombre_original = nombre
+
+    # Quitar paréntesis con contenido
+    nombre = re.sub(r'\(.*?\)', '', nombre)
+
+    # Eliminar una vez prefijos seguros (solo si están claramente al inicio con guión o espacio)
+    nombre = re.sub(regex_prefijos, '', nombre)
+
+    # Evitar errores como "ingrid", "luis", etc.
+    nombre = re.sub(r'^[a-z]{2,6}[\-\_]', '', nombre)
+
+    # Normalizar tildes y símbolos
+    nombre = unicodedata.normalize('NFD', nombre)
+    nombre = ''.join(c for c in nombre if unicodedata.category(c) != 'Mn')
+
+    # Eliminar caracteres raros
+    nombre = re.sub(r'[^a-z\s]', '', nombre)
+    nombre = re.sub(r'\s+', ' ', nombre).strip()
+
+    # Restaurar si quedó vacío
+    if not nombre:
+        return nombre_original.lower()
+
+    # Reducir nombres muy largos a 3 componentes
+    palabras = nombre.split()
+    if len(palabras) > 4:
+        palabras = [palabras[0]] + palabras[-2:]
+
+    return ' '.join(palabras)
 
 def agrupar_nombres_similares(df):
     """
@@ -303,176 +298,100 @@ def obtener_nombre_completo_bd(df):
     return df
 
 def buscar_area(nombre_practicante):
-    """Busca el área de un practicante con optimizaciones para evitar bloqueos o exceso de memoria."""
+    """Busca el área de un practicante incluso si el nombre está parcial o desordenado."""
     try:
-        # Verificación inicial para entradas inválidas
-        if not isinstance(nombre_practicante, str) or not nombre_practicante.strip():
-            return 'OTROS'
-            
         nombre_norm = normalizar_nombre(nombre_practicante)
         
-        # Verificación si la normalización falló
-        if not nombre_norm or not nombre_norm.strip():
-            return 'OTROS'
-        
-        # Verifica que json_areas esté correctamente cargado
+        # Asegurarse de que json_areas esté disponible (usando variable global)
         global json_areas
-        if not json_areas or not isinstance(json_areas, dict):
+        
+        # Check if json_areas is properly initialized
+        if not json_areas:
             return 'OTROS'
         
-        # 1. Coincidencia exacta (la más rápida)
+        # 1. Intentar coincidencia exacta
         if nombre_norm in json_areas:
             return json_areas[nombre_norm]
         
-        # 2. Coincidencia basada en palabras comunes (limitada para evitar sobrecarga)
-        palabras_input = set(nombre_norm.split())
-        if not palabras_input:
-            return 'OTROS'
-        
-        # Limitar a las primeras 50 entradas del JSON
-        items_to_check = list(json_areas.items())[:50]
-        
-        for nombre_json, area in items_to_check:
+        # 2. Comparar con cada nombre en el json usando diferentes métodos
+        for nombre_json, area in json_areas.items():
+            # Add type checking for nombre_json
             if not isinstance(nombre_json, str) or not nombre_json.strip():
                 continue
                 
-            try:
-                nombre_json_norm = normalizar_nombre(nombre_json)
-                if not nombre_json_norm:
-                    continue
-                
-                palabras_json = set(nombre_json_norm.split())
-                if not palabras_json:
-                    continue
-                
-                palabras_comunes = palabras_input & palabras_json
-                total_palabras = min(len(palabras_input), len(palabras_json))
-                
-                if total_palabras > 0 and len(palabras_comunes) / total_palabras >= 0.7:
-                    return area
-                
-                # Coincidencia por último apellido (rápida)
-                if len(palabras_input) >= 2 and len(palabras_json) >= 2:
-                    if list(palabras_input)[-1] == list(palabras_json)[-1]:
-                        return area
-                        
-            except Exception:
-                # Saltar entradas problemáticas sin interrumpir
-                continue
-        
-        # 3. Coincidencia difusa con difflib (último recurso, limitado)
-        try:
-            valid_keys = []
-            count = 0
-            for key in json_areas.keys():
-                if count >= 20:
-                    break
-                if isinstance(key, str) and key.strip():
-                    normalized_key = normalizar_nombre(key)
-                    if normalized_key and len(normalized_key.split()) >= 2:
-                        valid_keys.append(normalized_key)
-                        count += 1
+            nombre_json_norm = normalizar_nombre(nombre_json)
             
-            if valid_keys:
-                matches = difflib.get_close_matches(
-                    nombre_norm,
-                    valid_keys,
-                    n=1,
-                    cutoff=0.8  # Alta precisión
-                )
-                
-                if matches:
-                    for nombre_json, area in json_areas.items():
-                        if isinstance(nombre_json, str) and normalizar_nombre(nombre_json) == matches[0]:
-                            return area
-                            
-        except Exception:
-            pass
-        
-        return 'OTROS'
-        
-    except Exception as e:
-        print(f"Error en buscar_area para '{nombre_practicante}': {e}")
-        return 'OTROS'
-    
-def asignar_areas_batch(nombres_series):
-    """
-    Procesa múltiples nombres en lote para mejorar el rendimiento.
-    Utiliza esta función en lugar de aplicar buscar_area de uno en uno.
-    """
-    global json_areas
-
-    if not json_areas:
-        return ['OTROS'] * len(nombres_series)
-
-    # Preprocesar una sola vez los nombres del JSON
-    json_normalizado = {}
-    try:
-        for nombre_json, area in json_areas.items():
-            if isinstance(nombre_json, str) and nombre_json.strip():
-                try:
-                    nombre_norm = normalizar_nombre(nombre_json)
-                    if nombre_norm:
-                        json_normalizado[nombre_norm] = area
-                except:
-                    continue
-    except Exception as e:
-        print(f"Error al preprocesar áreas desde el JSON: {e}")
-        return ['OTROS'] * len(nombres_series)
-
-    resultados = []
-
-    for nombre in nombres_series:
-        try:
-            if not isinstance(nombre, str) or not nombre.strip():
-                resultados.append('OTROS')
+            # Skip if normalization resulted in empty string
+            if not nombre_json_norm:
                 continue
-
-            nombre_norm = normalizar_nombre(nombre)
-            if not nombre_norm:
-                resultados.append('OTROS')
-                continue
-
-            # 1. Coincidencia exacta
-            if nombre_norm in json_normalizado:
-                resultados.append(json_normalizado[nombre_norm])
-                continue
-
-            # 2. Coincidencia por palabras comunes
+            
+            # Comprobar si todas las palabras importantes están incluidas
             palabras_input = set(nombre_norm.split())
-            area_encontrada = 'OTROS'
+            palabras_json = set(nombre_json_norm.split())
+            
+            # Si hay una gran coincidencia en las palabras (más del 70%)
+            palabras_comunes = palabras_input & palabras_json
+            total_palabras = min(len(palabras_input), len(palabras_json))
+            
+            if total_palabras > 0 and len(palabras_comunes) / total_palabras >= 0.7:
+                return area
+            
+            # Coincidencia por apellidos (suponiendo que están al final)
+            if len(palabras_input) >= 2 and len(palabras_json) >= 2:
+                apellidos_input = ' '.join(sorted(list(palabras_input))[-2:])
+                apellidos_json = ' '.join(sorted(list(palabras_json))[-2:])
 
-            # Limitar a las primeras 100 entradas
-            items_checked = 0
-            for nombre_json_norm, area in json_normalizado.items():
-                if items_checked >= 100:
-                    break
+                if apellidos_input == apellidos_json:
+                    return area
+            
+            # Validación adicional: Primer nombre y primer apellido coinciden, pero segundo apellido es diferente
+            nombres_input = list(palabras_input)
+            nombres_json = list(palabras_json)
+            
+            if len(nombres_input) >= 2 and len(nombres_json) >= 2:
+                primer_nombre_input, primer_apellido_input = nombres_input[0], nombres_input[1]
+                primer_nombre_json, primer_apellido_json = nombres_json[0], nombres_json[1]
+                
+                if primer_nombre_input == primer_nombre_json and primer_apellido_input == primer_apellido_json:
+                    # Verifica el segundo apellido si existe
+                    if len(nombres_input) > 2 and len(nombres_json) > 2:
+                        segundo_apellido_input = nombres_input[2]  # Usamos índice 2 porque es el tercer elemento
+                        segundo_apellido_json = nombres_json[2]  # Similar aquí
+                        
+                        if segundo_apellido_input != segundo_apellido_json:
+                            continue
 
-                try:
-                    palabras_json = set(nombre_json_norm.split())
+                # Si los nombres coinciden pero el segundo apellido no, no agrupar
+                if len(nombres_input) > 2 and len(nombres_json) > 2:
+                    if nombres_input[2] != nombres_json[2]:
+                        continue
 
-                    interseccion = palabras_input & palabras_json
-                    if len(interseccion) >= 2:
-                        area_encontrada = area
-                        break
-                    elif len(interseccion) > 0:
-                        total_palabras = min(len(palabras_input), len(palabras_json))
-                        if total_palabras > 0 and len(interseccion) / total_palabras >= 0.7:
-                            area_encontrada = area
-                            break
-
-                except:
-                    pass
-
-                items_checked += 1
-
-            resultados.append(area_encontrada)
-
+        # 3. Usar difflib para encontrar coincidencias cercanas
+        try:
+            # Filter out None/empty keys before creating the list
+            valid_keys = [normalizar_nombre(key) for key in json_areas.keys() 
+                         if isinstance(key, str) and key.strip()]
+            
+            matches = difflib.get_close_matches(
+                nombre_norm,
+                valid_keys,
+                n=1,
+                cutoff=0.6  # Reducir para mayor tolerancia
+            )
+            
+            if matches:
+                # Buscar el nombre original que coincide con el normalizado
+                for nombre_json, area in json_areas.items():
+                    if isinstance(nombre_json, str) and normalizar_nombre(nombre_json) == matches[0]:
+                        return area
         except Exception as e:
-            print(f"Error al procesar el nombre '{nombre}': {e}")
-            resultados.append('OTROS')
-
-    return resultados
+            print(f"Error in difflib matching: {e}")
+        
+        return 'OTROS'
+        
+    except Exception as e:
+        print(f"Error in buscar_area for '{nombre_practicante}': {e}")
+        return 'OTROS'
 
 
 def calcular_total_horas(grupo):
@@ -541,7 +460,7 @@ def procesar_excel(file_paths):
     df_total['nombre_normalizado'] = df_total['nombre'].apply(normalizar_nombre)
     df_total = agrupar_nombres_similares(df_total)
     df_total = obtener_nombre_completo_bd(df_total)
-    df_total['Área'] = asignar_areas_batch(df_total['nombre'].tolist())
+    df_total['Área'] = df_total['nombre'].apply(buscar_area)
 
     nombre_original_df = df_total.copy()
     areas_disponibles = ['TODOS'] + sorted(df_total['Área'].unique().tolist())
@@ -841,9 +760,8 @@ def exportar_a_archivo(df_exportar, ruta):
         return False
 
 def quitar_tildes_y_ñ(texto):
-    texto = str(texto).lower().strip()  # 🔧 normaliza a minúscula y quita espacios
     texto_sin_tildes = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
-    return texto_sin_tildes.replace('ñ', 'n').replace('Ñ', 'n')
+    return texto_sin_tildes.replace('ñ', 'n').replace('Ñ', 'N')
 
 def buscar_por_nombre(texto_busqueda, df_original):
     """
@@ -858,16 +776,10 @@ def buscar_por_nombre(texto_busqueda, df_original):
         print("⚠️ DataFrame original está vacío")
         return pd.DataFrame()
     
-    # 🔧 VERIFICAR SI LA COLUMNA 'nombre' EXISTE
-    if 'nombre' not in df_original.columns:
-        print("❌ ERROR: Columna 'nombre' no encontrada en el DataFrame")
-        print(f"📋 Columnas disponibles: {list(df_original.columns)}")
-        return pd.DataFrame()
-    
     # Limpiar y preparar texto de búsqueda
     texto_busqueda = texto_busqueda.strip()
     texto_busqueda_limpio = quitar_tildes_y_ñ(texto_busqueda.lower())
-    palabras_clave = [p for p in texto_busqueda_limpio.split() if len(p) > 1]
+    palabras_clave = [p for p in texto_busqueda_limpio.split() if len(p) > 1]  # Filtrar palabras muy cortas
     
     print(f"🔍 Búsqueda: '{texto_busqueda}' -> '{texto_busqueda_limpio}'")
     print(f"📊 Registros disponibles: {len(df_original)}")
@@ -880,28 +792,18 @@ def buscar_por_nombre(texto_busqueda, df_original):
     # Crear copia del DataFrame
     df_trabajo = df_original.copy()
     
-    # 🔧 DEBUGGING: Mostrar algunos nombres para verificar
-    print("📝 Primeros 5 nombres en el DataFrame:")
-    nombres_muestra = df_trabajo['nombre'].dropna().head(5).tolist()
-    for i, nombre in enumerate(nombres_muestra, 1):
-        print(f"   {i}. {nombre}")
-    
     # Función de coincidencia mejorada
     def coincide_busqueda(nombre):
         if pd.isna(nombre):
             return False
         
-        nombre_limpio = quitar_tildes_y_ñ(str(nombre).lower().strip())
+        nombre_limpio = quitar_tildes_y_ñ(str(nombre).lower())
         
         # Método 1: Todas las palabras deben estar presentes
         coincidencias = 0
         for palabra in palabras_clave:
             if palabra in nombre_limpio:
                 coincidencias += 1
-        
-        # Debug: mostrar coincidencias para los primeros registros
-        if len(df_trabajo[df_trabajo['nombre'] == nombre]) <= 5:
-            print(f"   🔍 '{nombre}' -> '{nombre_limpio}' | Coincidencias: {coincidencias}/{len(palabras_clave)}")
         
         # Si todas las palabras coinciden, es una búsqueda perfecta
         if coincidencias == len(palabras_clave):
@@ -918,14 +820,10 @@ def buscar_por_nombre(texto_busqueda, df_original):
         return False
     
     # Aplicar filtro principal
-    try:
-        mask_principal = df_trabajo['nombre'].apply(coincide_busqueda)
-        df_filtrado = df_trabajo[mask_principal].copy()
-        
-        print(f"✅ Resultados con filtro principal: {len(df_filtrado)}")
-    except Exception as e:
-        print(f"❌ Error en filtro principal: {e}")
-        return pd.DataFrame()
+    mask_principal = df_trabajo['nombre'].apply(coincide_busqueda)
+    df_filtrado = df_trabajo[mask_principal].copy()
+    
+    print(f"✅ Resultados con filtro principal: {len(df_filtrado)}")
     
     # Si no hay resultados, intentar búsqueda más flexible
     if df_filtrado.empty:
@@ -947,78 +845,46 @@ def buscar_por_nombre(texto_busqueda, df_original):
                     # Búsqueda por similitud de secuencia
                     for parte_nombre in nombre_limpio.split():
                         if len(parte_nombre) >= 3:
-                            try:
-                                similitud = SequenceMatcher(None, palabra, parte_nombre).ratio()
-                                if similitud >= 0.8:  # 80% de similitud
-                                    return True
-                            except Exception:
-                                continue
+                            similitud = SequenceMatcher(None, palabra, parte_nombre).ratio()
+                            if similitud >= 0.8:  # 80% de similitud
+                                return True
             
             return False
         
-        try:
-            mask_flexible = df_trabajo['nombre'].apply(busqueda_flexible)
-            df_filtrado = df_trabajo[mask_flexible].copy()
-            
-            print(f"🎯 Resultados con búsqueda flexible: {len(df_filtrado)}")
-        except Exception as e:
-            print(f"❌ Error en búsqueda flexible: {e}")
-            return pd.DataFrame()
+        mask_flexible = df_trabajo['nombre'].apply(busqueda_flexible)
+        df_filtrado = df_trabajo[mask_flexible].copy()
+        
+        print(f"🎯 Resultados con búsqueda flexible: {len(df_filtrado)}")
     
     # Si aún no hay resultados, mostrar información de debug
     if df_filtrado.empty:
         print("❌ No se encontraron resultados")
         print("📝 Algunos nombres disponibles para referencia:")
         
-        try:
-            nombres_unicos = df_trabajo['nombre'].dropna().unique()
-            nombres_muestra = nombres_unicos[:10] if len(nombres_unicos) > 10 else nombres_unicos
-            
-            for i, nombre in enumerate(nombres_muestra, 1):
-                print(f"   {i}. {nombre}")
-            
-            if len(nombres_unicos) > 10:
-                print(f"   ... y {len(nombres_unicos) - 10} nombres más")
-        except Exception as e:
-            print(f"❌ Error mostrando nombres de muestra: {e}")
+        nombres_unicos = df_trabajo['nombre'].unique()
+        nombres_muestra = nombres_unicos[:10] if len(nombres_unicos) > 10 else nombres_unicos
+        
+        for i, nombre in enumerate(nombres_muestra, 1):
+            print(f"   {i}. {nombre}")
+        
+        if len(nombres_unicos) > 10:
+            print(f"   ... y {len(nombres_unicos) - 10} nombres más")
     
     return df_filtrado
 
 # Función principal que debes usar en tu ruta Flask
 def buscar_y_generar_reporte_con_estado(texto_busqueda, df_original):
-    """Función principal que debes usar en tu ruta Flask"""
     global df_actual_filtrado
     
-    print(f"🔍 Iniciando búsqueda con texto: '{texto_busqueda}'")
-    print(f"📊 DataFrame original tiene {len(df_original)} registros")
-    
-    # Actualizar estado de filtros
     actualizar_estado_filtros(busqueda=texto_busqueda)
-    
-    # Realizar búsqueda
-    df_filtrado = buscar_por_nombre(texto_busqueda, nombre_original_df.copy())
-    
-    print(f"🎯 Búsqueda completada. Registros encontrados: {len(df_filtrado)}")
-    
-    # Generar reporte si hay resultados
-    if not df_filtrado.empty:
-        df_reporte = generar_reporte(df_filtrado)
-        df_actual_filtrado = df_reporte.copy()
-        
-        # Registrar en historial
-        registrar_historial_busqueda(texto_busqueda, df_filtrado)
-        
-        print(f"✅ Reporte generado exitosamente con {len(df_reporte)} filas")
-        return df_reporte
-    else:
-        print("❌ No se encontraron resultados para la búsqueda")
-        df_vacio = pd.DataFrame()
-        df_actual_filtrado = df_vacio
-        
-        # Aún así registrar la búsqueda
-        registrar_historial_busqueda(texto_busqueda, df_vacio)
-        
-        return df_vacio
+    df_filtrado = buscar_por_nombre(texto_busqueda, df_original)
+    df_reporte = generar_reporte(df_filtrado)
+    df_actual_filtrado = df_reporte.copy()
+
+    # ✅ Aquí aseguras que se registre correctamente
+    registrar_historial_busqueda(texto_busqueda, df_filtrado)
+
+    return df_reporte
 
 
 def actualizar_estado_filtros(area=None, fechas=None, turno=None, busqueda=None):
@@ -1362,3 +1228,6 @@ def registrar_historial_busqueda(texto, df_resultado):
     filtros = obtener_estado_filtros_actual()
     descripcion = f"Búsqueda realizada: '{texto}'"
     guardar_en_historial(descripcion, archivos=ULTIMAS_RUTAS_CARGADAS, filtros=filtros, df_estado=df_resultado)
+
+
+

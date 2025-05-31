@@ -565,7 +565,9 @@ def obtener_dataframe_vacio():
     return pd.DataFrame()
 
 def detectar_vacios(grupo):
-    """Detecta vacíos entre registros consecutivos (>10 minutos)"""
+    """
+    Detecta vacíos entre registros consecutivos (>10 minutos) y retorna una lista de huecos
+    """
     grupo_ordenado = grupo.sort_values(by='entrada')
     vacios = []
     for i in range(1, len(grupo_ordenado)):
@@ -576,21 +578,29 @@ def detectar_vacios(grupo):
             vacios.append({
                 "salida": salida_anterior.strftime("%H:%M:%S"),
                 "reingreso": entrada_actual.strftime("%H:%M:%S"),
-                "duracion": str(diferencia).split('.')[0],
+                "duracion": str(diferencia).split('.')[0],  # Remover microsegundos
                 "diferencia_segundos": diferencia.total_seconds()
             })
     return vacios
 
 def calcular_horas_consideradas_vs_reales(grupo, vacios_detectados):
-    """Calcula las horas consideradas vs horas reales"""
+    """
+    Calcula las horas consideradas (rango completo) vs horas reales (descontando vacíos)
+    """
     if grupo.empty:
         return {}, {}
     
+    # Ordenar por entrada
     grupo_ordenado = grupo.sort_values(by='entrada')
+    
+    # Hora de entrada más temprana y salida más tardía
     primera_entrada = grupo_ordenado.iloc[0]['entrada']
     ultima_salida = grupo_ordenado.iloc[-1]['salida']
     
+    # Calcular tiempo total considerado
     tiempo_considerado = ultima_salida - primera_entrada
+    
+    # Calcular tiempo real (descontando vacíos)
     tiempo_vacios = sum([v['diferencia_segundos'] for v in vacios_detectados])
     tiempo_real_segundos = tiempo_considerado.total_seconds() - tiempo_vacios
     
@@ -608,7 +618,6 @@ def calcular_horas_consideradas_vs_reales(grupo, vacios_detectados):
     return horas_consideradas, horas_reales
 
 def generar_reporte(df):
-    """Genera el reporte final con toda la lógica de formateo"""
     if df.empty:
         return pd.DataFrame()
     
@@ -623,14 +632,15 @@ def generar_reporte(df):
             'Nombre Practicante': f'📅 Fecha de Reporte: {fecha.strftime("%d/%m/%Y")}',
             'Turno Mañana': '', 'Turno Tarde': '',
             'Horas T.': '', 'Minutos Totales': '', 'Área': '',
-            'Estado': '',
-            'vacios_info': [],
+            'Estado': '',  # Nueva columna
+            'vacios_info': [],  # Info adicional para vacíos
             'fecha': fecha
         })
         
         grupo_fecha = grupo_fecha[~grupo_fecha['nombre'].str.startswith('📅 Fecha de Reporte')]
         
         for nombre, grupo in grupo_fecha.groupby('nombre'):
+            # Detectar vacíos para este practicante
             vacios_detectados = detectar_vacios(grupo)
             
             turno_manana = {"entrada": None, "salida": None}
@@ -645,6 +655,8 @@ def generar_reporte(df):
                     turno_tarde["salida"] = max(turno_tarde["salida"], row['salida']) if turno_tarde["salida"] else row['salida']
             
             horas_t, minutos_total = calcular_total_horas(grupo)
+            
+            # Calcular horas consideradas vs horas reales
             horas_consideradas, horas_reales = calcular_horas_consideradas_vs_reales(grupo, vacios_detectados)
             
             def formatear_turno(turno):
@@ -652,6 +664,7 @@ def generar_reporte(df):
                     return f"{turno['entrada'].strftime('%I:%M %p')} - {turno['salida'].strftime('%I:%M %p')}"
                 return "NO INGRESO"
             
+            # Determinar el estado basado en vacíos detectados
             estado_icono = "✅" if not vacios_detectados else "⚠️"
             
             reporte_final.append({
@@ -828,8 +841,9 @@ def exportar_a_archivo(df_exportar, ruta):
         return False
 
 def quitar_tildes_y_ñ(texto):
+    texto = str(texto).lower().strip()  # 🔧 normaliza a minúscula y quita espacios
     texto_sin_tildes = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
-    return texto_sin_tildes.replace('ñ', 'n').replace('Ñ', 'N')
+    return texto_sin_tildes.replace('ñ', 'n').replace('Ñ', 'n')
 
 def buscar_por_nombre(texto_busqueda, df_original):
     """
@@ -877,7 +891,7 @@ def buscar_por_nombre(texto_busqueda, df_original):
         if pd.isna(nombre):
             return False
         
-        nombre_limpio = quitar_tildes_y_ñ(str(nombre).lower())
+        nombre_limpio = quitar_tildes_y_ñ(str(nombre).lower().strip())
         
         # Método 1: Todas las palabras deben estar presentes
         coincidencias = 0
@@ -982,7 +996,7 @@ def buscar_y_generar_reporte_con_estado(texto_busqueda, df_original):
     actualizar_estado_filtros(busqueda=texto_busqueda)
     
     # Realizar búsqueda
-    df_filtrado = buscar_por_nombre(texto_busqueda, df_original)
+    df_filtrado = buscar_por_nombre(texto_busqueda, nombre_original_df.copy())
     
     print(f"🎯 Búsqueda completada. Registros encontrados: {len(df_filtrado)}")
     
@@ -1348,6 +1362,3 @@ def registrar_historial_busqueda(texto, df_resultado):
     filtros = obtener_estado_filtros_actual()
     descripcion = f"Búsqueda realizada: '{texto}'"
     guardar_en_historial(descripcion, archivos=ULTIMAS_RUTAS_CARGADAS, filtros=filtros, df_estado=df_resultado)
-
-
-

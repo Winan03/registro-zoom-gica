@@ -401,6 +401,8 @@ def procesar_excel(file_paths):
 
     print(f"✅ Datos procesados: {len(df_total)} registros")
 
+    df_total.to_pickle("datos_temporales.pkl")
+
     return generar_reporte(df_total)
 
 def obtener_dataframe_vacio():

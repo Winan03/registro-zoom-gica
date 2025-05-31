@@ -12,6 +12,11 @@ from procesamiento import (
 )
 import procesamiento
 
+def restaurar_si_vacio():
+    if procesamiento.nombre_original_df.empty and os.path.exists("datos_temporales.pkl"):
+        print("🟡 Restaurando datos desde respaldo temporal...")
+        procesamiento.nombre_original_df = pd.read_pickle("datos_temporales.pkl")
+
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
@@ -39,6 +44,7 @@ def cargar():
 
 @app.route('/filtrar', methods=['POST'])
 def filtrar():
+    restaurar_si_vacio() 
     area = request.form.get('area', 'TODOS')
     fechas = request.form.getlist('fechas')
     turno = request.form.get('turno', 'TODOS')
@@ -52,6 +58,7 @@ def filtrar():
 
 @app.route('/buscar', methods=['POST'])
 def buscar():
+    restaurar_si_vacio() 
     try:
         texto = request.form.get('busqueda', '').strip()
         
@@ -89,6 +96,7 @@ def buscar():
 
 @app.route('/limpiar', methods=['POST'])
 def limpiar():
+    restaurar_si_vacio() 
     # Usar la nueva función que limpia todo
     df = limpiar_filtros_y_busqueda()
     html_tabla = mostrar_tabla_agrupada_por_fecha(df)
@@ -149,6 +157,7 @@ def obtener_estado_filtros():
 
 @app.route('/reestablecer', methods=['POST'])
 def reestablecer():
+    restaurar_si_vacio() 
     df = procesamiento.reiniciar_todo()
     html_tabla = mostrar_tabla_agrupada_por_fecha(df)
     fechas, areas = obtener_filtros_actuales()

@@ -1,7 +1,7 @@
 [
   {
     "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv",
-    "fecha": "2025-05-30 20:19:05",
+    "fecha": "2025-05-30 20:32:44",
     "archivos": [
       "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
     ],
@@ -9,71 +9,8 @@
     "df_estado": []
   },
   {
-    "descripcion": "Búsqueda realizada: 'aldrin'",
-    "fecha": "2025-05-30 20:19:10",
-    "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
-    ],
-    "filtros_aplicados": {
-      "area": "TODOS",
-      "fechas": [],
-      "turno": "TODOS",
-      "busqueda": "aldrin"
-    },
-    "df_estado": [
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      }
-    ]
-  },
-  {
     "descripcion": "Filtros aplicados: Área=PRACTICANTES AMBIENTAL, Fechas=NINGUNA, Turno=TODOS, Búsqueda=NINGUNA",
-    "fecha": "2025-05-30 20:19:17",
+    "fecha": "2025-05-30 20:32:52",
     "archivos": [
       "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
     ],
@@ -86,45 +23,15 @@
     "df_estado": []
   },
   {
-    "descripcion": "Filtros aplicados: Área=TODOS, Fechas=['30/04/2025'], Turno=TODOS, Búsqueda=NINGUNA",
-    "fecha": "2025-05-30 20:19:22",
-    "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
-    ],
-    "filtros_aplicados": {
-      "area": "TODOS",
-      "fechas": [
-        "30/04/2025"
-      ],
-      "turno": "TODOS",
-      "busqueda": ""
-    },
-    "df_estado": []
-  },
-  {
-    "descripcion": "Filtros aplicados: Área=TODOS, Fechas=NINGUNA, Turno=TARDE, Búsqueda=NINGUNA",
-    "fecha": "2025-05-30 20:19:28",
+    "descripcion": "Filtros aplicados: Área=TODOS, Fechas=NINGUNA, Turno=MAÑANA, Búsqueda=NINGUNA",
+    "fecha": "2025-05-30 20:32:57",
     "archivos": [
       "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
     ],
     "filtros_aplicados": {
       "area": "TODOS",
       "fechas": [],
-      "turno": "TARDE",
-      "busqueda": ""
-    },
-    "df_estado": []
-  },
-  {
-    "descripcion": "Filtros aplicados: Área=PRACTICANTES AMBIENTAL, Fechas=NINGUNA, Turno=TARDE, Búsqueda=NINGUNA",
-    "fecha": "2025-05-30 20:19:41",
-    "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
-    ],
-    "filtros_aplicados": {
-      "area": "PRACTICANTES AMBIENTAL",
-      "fechas": [],
-      "turno": "TARDE",
+      "turno": "MAÑANA",
       "busqueda": ""
     },
     "df_estado": []

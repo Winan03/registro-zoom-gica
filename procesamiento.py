@@ -3,14 +3,12 @@ import re
 import unicodedata
 from difflib import SequenceMatcher, get_close_matches
 import requests
-from datetime import datetime
+from datetime import datetime, date
 import difflib
+import os
+import json
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl import load_workbook
-import json
-import os
-from datetime import date
-from rapidfuzz import process, fuzz
 
 # Constantes y configuraciones
 titulos_academicos = ["mtr", "msc", "lic", "sr", "srta", "dra", "est", "prof", "doc", "aux"]
@@ -47,18 +45,15 @@ try:
     response.raise_for_status()
     data_json = response.json()
     json_areas = {}
-    json_areas_normalizado = {}
-
     for p in data_json:
-        nombre_norm = normalizar_nombre(p['nombre'])
-        json_areas[nombre_norm] = p['area']
-        json_areas_normalizado[nombre_norm] = p['area']
-        
+        nombre_norm = unicodedata.normalize('NFD', p['nombre']).encode('ascii', 'ignore').decode('utf-8').lower().strip()
         partes = nombre_norm.split()
+        if len(partes) < 3:
+            continue
+        json_areas[nombre_norm] = p['area']
         if len(partes) > 1:
             nombre_invertido = ' '.join(reversed(partes))
             json_areas[nombre_invertido] = p['area']
-            json_areas_normalizado[nombre_invertido] = p['area']
 except Exception as e:
     print(f"Error al cargar JSON: {e}")
     data_json = []
@@ -225,11 +220,9 @@ def agrupar_nombres_similares(df):
     df['nombre'] = df['nombre_normalizado'].map(mapeo_final).fillna(df['nombre_normalizado']).str.upper()
     return df
 
-
 def obtener_nombre_completo_bd(df):
     if 'nombre' not in df.columns:
         return df
-
     mapa_nombres_completos = {}
     for p in data_json:
         nombre_norm = normalizar_nombre(p['nombre'])
@@ -237,25 +230,18 @@ def obtener_nombre_completo_bd(df):
         partes = nombre_norm.split()
         if len(partes) > 1:
             mapa_nombres_completos[' '.join(reversed(partes))] = p['nombre']
-
-    keys_lista = list(mapa_nombres_completos.keys())
-
     def encontrar_nombre_completo(nombre):
         nombre_norm = normalizar_nombre(nombre)
         if nombre_norm in mapa_nombres_completos:
             return mapa_nombres_completos[nombre_norm].upper()
-
         palabras = set(nombre_norm.split())
         for k, v in mapa_nombres_completos.items():
             if len(palabras.intersection(set(k.split()))) >= 2:
                 return v.upper()
-
-        match = process.extractOne(nombre_norm, keys_lista, scorer=fuzz.ratio, score_cutoff=60)
-        if match:
-            return mapa_nombres_completos[match[0]].upper()
-
+        matches = get_close_matches(nombre_norm, list(mapa_nombres_completos.keys()), n=1, cutoff=0.6)
+        if matches:
+            return mapa_nombres_completos[matches[0]].upper()
         return nombre.upper()
-
     df['nombre'] = df['nombre'].apply(encontrar_nombre_completo)
     return df
 

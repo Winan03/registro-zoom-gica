@@ -348,7 +348,7 @@ def calcular_total_horas(grupo):
     return f"{horas_exactas:.2f}", minutos_totales
 
 
-def procesar_excel(file_paths):
+def procesar_excel(file_paths): 
     global nombre_original_df, areas_disponibles
 
     df_total = pd.DataFrame()
@@ -367,13 +367,22 @@ def procesar_excel(file_paths):
             'Nombre (nombre original)': 'nombre',
             'Hora de entrada': 'entrada',
             'Hora de salida': 'salida'
-        }).copy()
-        df = df[['nombre', 'entrada', 'salida']].dropna()
+        })[['nombre', 'entrada', 'salida']].dropna()
+
         df['nombre'] = df['nombre'].astype(str)
-        df['entrada'] = pd.to_datetime(df['entrada'], dayfirst=True, errors='coerce')
-        df['salida'] = pd.to_datetime(df['salida'], dayfirst=True, errors='coerce')
+
+        # Convertir a datetime con el formato correcto
+        fmt = '%d/%m/%Y %I:%M:%S %p'
+        df['entrada'] = pd.to_datetime(df['entrada'], format=fmt, errors='coerce')
+        df['salida'] = pd.to_datetime(df['salida'], format=fmt, errors='coerce')
 
         df = df.dropna(subset=['entrada', 'salida'])
+
+        # Calcular duración
+        df['duracion_minutos'] = (df['salida'] - df['entrada']).dt.total_seconds() / 60
+        df['duracion_horas'] = (df['duracion_minutos'] / 60).round(2)
+
+        # Agregar fecha (solo para filtrado o agrupación)
         df['fecha'] = df['entrada'].dt.date
 
         df_total = pd.concat([df_total, df], ignore_index=True)
@@ -381,29 +390,30 @@ def procesar_excel(file_paths):
     if df_total.empty:
         return pd.DataFrame()
 
+    # Enriquecer el DataFrame
     df_total['nombre_normalizado'] = df_total['nombre'].apply(normalizar_nombre)
     df_total = agrupar_nombres_similares(df_total)
     df_total = obtener_nombre_completo_bd(df_total)
     df_total['Área'] = df_total['nombre'].apply(buscar_area)
 
+    # Variables globales y auxiliares
     nombre_original_df = df_total.copy()
     areas_disponibles = ['TODOS'] + sorted(df_total['Área'].unique().tolist())
-    fechas = sorted(list(set(f.strftime('%d/%m/%Y') for f in df_total['fecha'])))
+    fechas = sorted({f.strftime('%d/%m/%Y') for f in df_total['fecha']})
 
     fechas_disponibles_var.clear()
     fechas_disponibles_var.extend(fechas)
     fechas_seleccionadas_var.clear()
-
     ULTIMAS_RUTAS_CARGADAS.clear()
     ULTIMAS_RUTAS_CARGADAS.extend(file_paths)
 
     registrar_historial_carga_archivos(file_paths)  
-
     print(f"✅ Datos procesados: {len(df_total)} registros")
 
     df_total.to_pickle("datos_temporales.pkl")
 
     return generar_reporte(df_total)
+
 
 def obtener_dataframe_vacio():
     """Retorna un DataFrame vacío para usar en Flask."""
@@ -463,7 +473,7 @@ def calcular_horas_consideradas_vs_reales(grupo, vacios_detectados):
     return horas_consideradas, horas_reales
 
 def generar_reporte(df):
-    if df.empty:
+    if df is None or df.empty:
         return pd.DataFrame()
     
     df = df.copy()
@@ -689,6 +699,10 @@ def quitar_tildes_y_ñ(texto):
     texto_sin_tildes = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto_sin_tildes.replace('ñ', 'n').replace('Ñ', 'N')
 
+def quitar_tildes_y_ñ(texto):
+    texto_sin_tildes = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+    return texto_sin_tildes.replace('ñ', 'n').replace('Ñ', 'N')
+
 def buscar_por_nombre(texto_busqueda, df_original):
     """
     Función de búsqueda mejorada con mejor manejo de casos edge y debugging
@@ -796,19 +810,105 @@ def buscar_por_nombre(texto_busqueda, df_original):
         if len(nombres_unicos) > 10:
             print(f"   ... y {len(nombres_unicos) - 10} nombres más")
     
+    # ¡AQUÍ ESTABA EL ERROR! Faltaba el return
     return df_filtrado
+
+def obtener_sugerencias_nombres(query, df_original, limit=10):
+    """
+    Obtiene sugerencias de nombres basadas en la consulta
+    """
+    if not query or len(query.strip()) < 2:
+        return []
+    
+    if df_original.empty:
+        return []
+    
+    query_limpio = quitar_tildes_y_ñ(query.lower().strip())
+    palabras_query = query_limpio.split()
+    
+    # Obtener nombres únicos del DataFrame
+    nombres_unicos = df_original['nombre'].dropna().unique()
+    
+    sugerencias = []
+    scores = []
+    
+    for nombre in nombres_unicos:
+        nombre_limpio = quitar_tildes_y_ñ(str(nombre).lower())
+        score = calcular_score_sugerencia(query_limpio, palabras_query, nombre_limpio)
+        
+        if score > 0:
+            sugerencias.append((nombre, score))
+    
+    # Ordenar por score descendente y tomar los mejores
+    sugerencias.sort(key=lambda x: x[1], reverse=True)
+    
+    # Retornar solo los nombres, limitados
+    return [nombre for nombre, score in sugerencias[:limit]]
+
+def calcular_score_sugerencia(query_limpio, palabras_query, nombre_limpio):
+    """
+    Calcula un score para determinar qué tan buena es la sugerencia
+    """
+    score = 0
+    
+    # 1. Coincidencia exacta al inicio (mayor peso)
+    if nombre_limpio.startswith(query_limpio):
+        score += 100
+    
+    # 2. Contiene la query completa
+    elif query_limpio in nombre_limpio:
+        score += 80
+    
+    # 3. Coincidencia por palabras
+    else:
+        palabras_coincidentes = 0
+        for palabra in palabras_query:
+            if len(palabra) >= 2:  # Ignorar palabras muy cortas
+                if palabra in nombre_limpio:
+                    palabras_coincidentes += 1
+                    score += 30
+                else:
+                    # Buscar coincidencias parciales
+                    for parte_nombre in nombre_limpio.split():
+                        if len(parte_nombre) >= 3:
+                            # Coincidencia al inicio de palabra
+                            if parte_nombre.startswith(palabra):
+                                score += 20
+                                break
+                            # Similitud usando SequenceMatcher
+                            elif len(palabra) >= 3:
+                                similitud = SequenceMatcher(None, palabra, parte_nombre).ratio()
+                                if similitud >= 0.7:
+                                    score += int(similitud * 15)
+                                    break
+        
+        # Bonus si todas las palabras coinciden
+        if palabras_coincidentes == len(palabras_query) and len(palabras_query) > 1:
+            score += 25
+    
+    # 4. Penalizar nombres muy largos comparados con la query
+    if len(nombre_limpio) > len(query_limpio) * 3:
+        score = int(score * 0.8)
+    
+    return score
 
 # Función principal que debes usar en tu ruta Flask
 def buscar_y_generar_reporte_con_estado(texto_busqueda, df_original):
     global df_actual_filtrado
-    
+
     actualizar_estado_filtros(busqueda=texto_busqueda)
     df_filtrado = buscar_por_nombre(texto_busqueda, df_original)
-    df_reporte = generar_reporte(df_filtrado)
+
+    # Validación contra None
+    if df_filtrado is None or df_filtrado.empty:
+        df_reporte = pd.DataFrame()
+    else:
+        df_reporte = generar_reporte(df_filtrado)
+
     df_actual_filtrado = df_reporte.copy()
 
-    # ✅ Aquí aseguras que se registre correctamente
-    registrar_historial_busqueda(texto_busqueda, df_filtrado)
+    # Registrar búsqueda solo si hay algo filtrado
+    registrar_historial_busqueda(texto_busqueda, df_filtrado if df_filtrado is not None else pd.DataFrame())
 
     return df_reporte
 

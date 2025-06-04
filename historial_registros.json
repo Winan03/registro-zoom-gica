@@ -1,39 +1,74 @@
 [
   {
     "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv",
-    "fecha": "2025-05-30 20:32:44",
+    "fecha": "2025-06-03 17:59:53",
     "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
+      "/tmp/Plantilla_de_Prueba_V1.csv"
     ],
     "filtros_aplicados": {},
     "df_estado": []
   },
   {
-    "descripcion": "Filtros aplicados: Área=PRACTICANTES AMBIENTAL, Fechas=NINGUNA, Turno=TODOS, Búsqueda=NINGUNA",
-    "fecha": "2025-05-30 20:32:52",
+    "descripcion": "Búsqueda realizada: 'ALDRIN ZEUS MONCADA CHUNGA'",
+    "fecha": "2025-06-03 17:59:59",
     "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
-    ],
-    "filtros_aplicados": {
-      "area": "PRACTICANTES AMBIENTAL",
-      "fechas": [],
-      "turno": "TODOS",
-      "busqueda": ""
-    },
-    "df_estado": []
-  },
-  {
-    "descripcion": "Filtros aplicados: Área=TODOS, Fechas=NINGUNA, Turno=MAÑANA, Búsqueda=NINGUNA",
-    "fecha": "2025-05-30 20:32:57",
-    "archivos": [
-      "C:\\Users\\PC\\AppData\\Local\\Temp\\Plantilla_de_Prueba_V1.csv"
+      "/tmp/Plantilla_de_Prueba_V1.csv"
     ],
     "filtros_aplicados": {
       "area": "TODOS",
       "fechas": [],
-      "turno": "MAÑANA",
-      "busqueda": ""
+      "turno": "TODOS",
+      "busqueda": "ALDRIN ZEUS MONCADA CHUNGA"
     },
-    "df_estado": []
+    "df_estado": [
+      {
+        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "aldrin moncada",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "aldrin moncada",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "aldrin moncada",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "aldrin moncada",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "aldrin moncada",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      },
+      {
+        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
+        "entrada": "2025-04-30",
+        "salida": "2025-04-30",
+        "fecha": "2025-04-30",
+        "nombre_normalizado": "aldrin moncada",
+        "Área": "PRACTICANTES MECANICA ELECTRICA"
+      }
+    ]
   }
 ]

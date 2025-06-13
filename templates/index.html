@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Horas de Prácticas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/graficos.css') }}">
     <style>
         
         :root {
@@ -1131,6 +1133,10 @@
                 <button class="btn btn-info" onclick="toggleUpload()">
                     📂 Ingresar Reporte (Excel)
                 </button>
+                <!-- NUEVO BOTÓN DE GRÁFICOS -->
+                <button class="btn btn-graficos" onclick="mostrarModalGraficos()">
+                    📈 Ver Gráficos
+                </button>
                 <button class="btn btn-purple" onclick="resetAll()">
                     🔄 Restablecer Todo
                 </button>
@@ -1294,6 +1300,70 @@
         </div>
     </div>
 
+    <!-- MODAL DE GRÁFICOS (ACTUALIZADO) -->
+    <div id="graficosModal" class="graficos-modal hidden">
+        <div class="graficos-modal-content">
+            <!-- Header del Modal -->
+            <div class="graficos-modal-header">
+                <h2>📈 Dashboard de Análisis</h2>
+                <span class="graficos-close" onclick="cerrarModalGraficos()">&times;</span>
+            </div>
+            
+            <!-- Cuerpo del Modal -->
+            <div class="graficos-modal-body">
+                <h3>📊 Tipos de Gráficos Disponibles</h3>
+                <div class="graficos-tipos">
+                    <button class="grafico-tipo-btn" onclick="generarGrafico('area'); togglePracticanteFilter(false);">
+                        <span class="emoji">📊</span>
+                        <span>Practicantes por Área</span>
+                    </button>
+                    <button class="grafico-tipo-btn" onclick="generarGraficoHorasPromedio()">
+                        <span class="emoji">📈</span>
+                        <span>Horas Promedio</span>
+                    </button>
+                    <!-- Puedes mantener estos botones si tienes las funciones de backend para ellos -->
+                    <button class="grafico-tipo-btn" onclick="alert('Funcionalidad en desarrollo para Distribución por Turnos')">
+                        <span class="emoji">🕐</span>
+                        <span>Distribución por Turnos</span>
+                    </button>
+                    <button class="grafico-tipo-btn" onclick="alert('Funcionalidad en desarrollo para Evolución por Fechas')">
+                        <span class="emoji">📅</span>
+                        <span>Evolución por Fechas</span>
+                    </button>
+                </div>
+                
+                <!-- Sección de filtro por practicante (oculta por defecto) -->
+                <div id="practicante-filter-section" class="hidden">
+                    <label for="nombrePracticanteInput">Filtrar por Practicante (Horas Promedio):</label>
+                    <input type="text" id="nombrePracticanteInput" 
+                           placeholder="Ej. Juan Pérez">
+                    <button onclick="generarGraficoHorasPracticanteEspecifico()"
+                            class="btn btn-purple">
+                        Ver Horas de Practicante
+                    </button>
+                </div>
+
+                <!-- Contenedor del Gráfico -->
+                <div id="grafico-container" class="grafico-display">
+                    <div class="grafico-placeholder">
+                        <p>📊 Selecciona un tipo de gráfico para visualizar los datos</p>
+                    </div>
+                </div>
+                
+                <!-- Botones de Acción -->
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="descargarGrafico()" id="descargarBtn" style="display:none;">
+                        💾 Descargar Gráfico
+                    </button>
+                    <button class="btn btn-primary" onclick="actualizarDatos()">
+                        🔄 Actualizar Datos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/graficos.js') }}"></script>
     <script>
 
         // Variables globales

@@ -9,7 +9,8 @@ from procesamiento import (
     aplicar_filtros_y_guardar_estado, limpiar_filtros_y_busqueda, 
     obtener_filtros_actuales, exportar_reporte_con_filtros_actuales,
     exportar_reporte_completo, exportar_a_archivo, buscar_y_generar_reporte_con_estado,
-    obtener_sugerencias_nombres, calcular_score_sugerencia
+    obtener_sugerencias_nombres, calcular_score_sugerencia,generar_grafico_barras_area, # Asegúrate de importar estas funciones
+    generar_grafico_horas_promedio,
 )
 import procesamiento
 
@@ -399,6 +400,58 @@ def obtener_info_vacios(indice):
     except Exception as e:
         print(f"❌ Error en obtener_info_vacios: {e}")
         return jsonify({'error': f'Error interno: {str(e)}'}), 500
+
+@app.route('/generar_graficos', methods=['POST'])
+def generar_graficos():
+    # Asegura que los datos estén cargados si hay un respaldo al inicio de cualquier ruta que use datos
+    restaurar_si_vacio() 
+    try:
+        data = request.get_json()
+        tipo_grafico = data.get('tipo_grafico', 'area')
+        nombre_practicante = data.get('nombre_practicante')
+
+        # Obtiene el DataFrame actual con los filtros aplicados en la interfaz principal.
+        # Esto es crucial para que los gráficos reflejen el estado actual de los datos.
+        df = exportar_reporte_con_filtros_actuales() 
+
+        if df.empty:
+            return jsonify({
+                'success': False,
+                'error': 'No hay datos cargados o los filtros no arrojaron resultados. Por favor, carga un archivo primero o ajusta los filtros.'
+            })
+
+        if tipo_grafico == 'area':
+            resultado = generar_grafico_barras_area(df)
+        elif tipo_grafico == 'horas_promedio':
+            # La función generar_grafico_horas_promedio ahora puede aceptar un nombre_practicante
+            resultado = generar_grafico_horas_promedio(df, nombre_practicante=nombre_practicante)
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Tipo de gráfico no válido'
+            })
+        return jsonify(resultado)
+    except Exception as e:
+        print(f"❌ Error al generar gráfico: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Error al generar gráfico: {str(e)}'
+        })
+
+@app.route('/tipos_graficos', methods=['GET'])
+def tipos_graficos():
+    """
+    Proporciona una lista de los tipos de gráficos disponibles y su descripción.
+    Esto es útil para que el frontend pueda construir dinámicamente los botones.
+    """
+    return jsonify({
+        'tipos': [
+            {'id': 'area', 'nombre': 'Practicantes por Área', 'descripcion': 'Cantidad de practicantes en cada área'},
+            {'id': 'horas_promedio', 'nombre': 'Horas Promedio por Área (o por Practicante)', 'descripcion': 'Promedio de horas de práctica por área o por un practicante específico'}
+        ]
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5003)

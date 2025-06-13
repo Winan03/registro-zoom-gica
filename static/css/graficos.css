@@ -1,0 +1,296 @@
+/* Estilos específicos para el botón que abre el modal de gráficos */
+.btn-graficos {
+    background: linear-gradient(135deg, #ff6b6b, #ffa500);
+    color: white;
+}
+
+.btn-graficos:hover {
+    background: linear-gradient(135deg, #ff5252, #ff9800);
+}
+
+/* Estilos para el modal de gráficos en sí */
+.graficos-modal {
+    display: none; /* Oculto por defecto */
+    position: fixed;
+    z-index: 1001; /* Asegurarse de que esté por encima de todo */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.6); /* Fondo semi-transparente */
+    animation: fadeIn 0.3s ease-out; /* Animación de entrada */
+    display: flex; /* Para centrar contenido */
+    align-items: center;
+    justify-content: center;
+}
+
+/* Contenido del modal de gráficos */
+.graficos-modal-content {
+    background-color: white;
+    margin: 2% auto; /* Tu margen, pero centrado con flex en el padre */
+    padding: 0; /* Padding movido a graficos-modal-body */
+    border: none;
+    border-radius: 15px; /* Más redondeado */
+    width: 95%; /* Más ancho para gráficos */
+    max-width: 1000px; /* Máximo 1000px */
+    max-height: 90vh; /* Máximo 90% de la altura de la vista */
+    overflow-y: auto; /* Scroll si el contenido es grande */
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); /* Sombra más pronunciada */
+    animation: slideIn 0.3s ease-out; /* Animación de entrada */
+    position: relative; /* Necesario para el botón de cierre absoluto */
+}
+
+/* Animaciones para el modal de gráficos */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Cabecera del modal de gráficos */
+.graficos-modal-header {
+    background: linear-gradient(135deg, #4CAF50, #45a049); /* Tu gradiente verde */
+    color: white;
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    text-align: center;
+    position: relative;
+}
+
+.graficos-modal-header h2 {
+    margin: 0;
+    font-size: 28px; /* Tu tamaño de fuente */
+    font-weight: bold; /* Tu peso de fuente */
+}
+
+/* Botón de cierre del modal de gráficos */
+.graficos-close {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    color: white;
+    font-size: 35px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    line-height: 1;
+}
+
+.graficos-close:hover {
+    color: #ffeb3b; /* Tu color de hover */
+    transform: scale(1.1); /* Tu escala de hover */
+}
+
+/* Cuerpo del modal de gráficos */
+.graficos-modal-body {
+    padding: 30px; /* Tu padding */
+}
+
+.graficos-modal-body h3 {
+    text-align: center;
+    margin-bottom: 25px; /* Tu margen */
+    color: #333; /* Tu color */
+    font-size: 22px; /* Tu tamaño de fuente */
+}
+
+/* Contenedor de los botones de tipo de gráfico */
+.graficos-tipos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Tu grid */
+    gap: 15px; /* Tu espacio */
+    margin-bottom: 30px; /* Tu margen */
+}
+
+/* Botones individuales de tipo de gráfico */
+.grafico-tipo-btn {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef); /* Tu gradiente */
+    border: 2px solid #dee2e6; /* Tu borde */
+    border-radius: 12px; /* Tu radio de borde */
+    padding: 20px; /* Tu padding */
+    cursor: pointer;
+    transition: all 0.3s ease; /* Tu transición */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px; /* Tu espacio */
+    font-size: 16px; /* Tu tamaño de fuente */
+    font-weight: 600; /* Tu peso de fuente */
+    color: #495057; /* Tu color */
+    min-height: 100px; /* Tu altura mínima */
+    justify-content: center;
+}
+
+.grafico-tipo-btn:hover {
+    background: linear-gradient(135deg, #007bff, #0056b3); /* Tu gradiente de hover */
+    color: white;
+    border-color: #007bff; /* Tu color de borde */
+    transform: translateY(-3px); /* Tu transformación */
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.3); /* Tu sombra */
+}
+
+.grafico-tipo-btn .emoji {
+    font-size: 32px; /* Tu tamaño de emoji */
+    margin-bottom: 5px; /* Tu margen */
+}
+
+/* Contenedor donde se muestra el gráfico */
+.grafico-display {
+    background: #f8f9fa; /* Tu color de fondo */
+    border: 2px dashed #dee2e6; /* Tu borde */
+    border-radius: 12px; /* Tu radio de borde */
+    padding: 30px; /* Tu padding */
+    margin: 25px 0; /* Tu margen */
+    min-height: 400px; /* Tu altura mínima */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.grafico-placeholder {
+    text-align: center;
+    color: #6c757d;
+    font-size: 18px;
+}
+
+.grafico-resultado {
+    width: 100%;
+    text-align: center;
+}
+
+.grafico-resultado h4 {
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 20px;
+}
+
+.grafico-imagen {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Estilos para mensajes de carga y error (aplicables al modal de gráficos) */
+.loading {
+    color: #007bff;
+    font-size: 18px;
+    font-weight: 600;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.error {
+    color: #dc3545;
+    background-color: #f8d7da;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #f5c6cb;
+    font-weight: 600;
+}
+
+/* Contenedor de acciones del modal */
+.modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 25px;
+    padding-top: 25px;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Botón secundario dentro del modal de gráficos */
+.btn-secondary { /* Tu clase de botón secundario */
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+/* Sección de filtro por practicante en el modal de gráficos */
+#practicante-filter-section {
+    background-color: #e2e8f0; /* Color de fondo gris claro */
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #cbd5e0;
+}
+#practicante-filter-section label {
+    display: block;
+    color: #4a5568;
+    font-size: 0.875rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+#practicante-filter-section input[type="text"] {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    color: #4a5568;
+    line-height: 1.25;
+    outline: none;
+    margin-bottom: 0.75rem;
+}
+#practicante-filter-section input[type="text"]:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+#practicante-filter-section .btn { /* Para el botón "Ver Horas de Practicante" */
+    background-color: #8b5cf6; /* bg-purple-600 */
+    color: white;
+    padding: 0.5rem 1.25rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+#practicante-filter-section .btn:hover {
+    background-color: #7c3aed; /* hover:bg-purple-700 */
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+
+/* Responsive para el modal de gráficos */
+@media (max-width: 768px) {
+    .graficos-modal-content {
+        width: 98%;
+        margin: 1% auto;
+        max-height: 95vh;
+        padding: 0;
+    }
+    .graficos-modal-header h2 {
+        font-size: 24px;
+    }
+    .graficos-modal-body {
+        padding: 20px;
+    }
+    .graficos-tipos {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .grafico-tipo-btn {
+        padding: 15px;
+        min-height: 80px;
+    }
+    .grafico-tipo-btn .emoji {
+        font-size: 24px;
+    }
+    .modal-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    .modal-actions .btn {
+        width: 100%;
+        max-width: 250px;
+    }
+}

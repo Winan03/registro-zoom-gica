@@ -1,74 +1,11 @@
 [
   {
-    "descripcion": "Carga de archivos: Plantilla_de_Prueba_V1.csv",
-    "fecha": "2025-06-03 17:59:53",
+    "descripcion": "Carga de archivos: Plantilla-de-Prueba_V1.xlsx",
+    "fecha": "2025-06-12 21:23:49",
     "archivos": [
-      "/tmp/Plantilla_de_Prueba_V1.csv"
+      "/tmp/Plantilla-de-Prueba_V1.xlsx"
     ],
     "filtros_aplicados": {},
     "df_estado": []
-  },
-  {
-    "descripcion": "Búsqueda realizada: 'ALDRIN ZEUS MONCADA CHUNGA'",
-    "fecha": "2025-06-03 17:59:59",
-    "archivos": [
-      "/tmp/Plantilla_de_Prueba_V1.csv"
-    ],
-    "filtros_aplicados": {
-      "area": "TODOS",
-      "fechas": [],
-      "turno": "TODOS",
-      "busqueda": "ALDRIN ZEUS MONCADA CHUNGA"
-    },
-    "df_estado": [
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      },
-      {
-        "nombre": "ALDRIN ZEUS MONCADA CHUNGA",
-        "entrada": "2025-04-30",
-        "salida": "2025-04-30",
-        "fecha": "2025-04-30",
-        "nombre_normalizado": "aldrin moncada",
-        "Área": "PRACTICANTES MECANICA ELECTRICA"
-      }
-    ]
   }
 ]

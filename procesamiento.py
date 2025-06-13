@@ -9,6 +9,21 @@ import os
 import json
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl import load_workbook
+import io
+import base64
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator # Importar MaxNLocator
+matplotlib.use('Agg')
+
+### CAMBIOS PARA INTEGRAR ML ###
+import joblib # Necesario para cargar el modelo y el vectorizador
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from fuzzywuzzy import fuzz # Necesario para generar_caracteristicas
+import numpy as np # Necesario para generar_caracteristicas
+### FIN CAMBIOS PARA INTEGRAR ML ###
+
 
 # Constantes y configuraciones
 titulos_academicos = ["mtr", "msc", "lic", "sr", "srta", "dra", "est", "prof", "doc", "aux"]
@@ -38,26 +53,74 @@ estado_filtros = {
     'busqueda': ''
 }
 
-# Cargar JSON de practicantes
+# --- RUTAS DE ARCHIVOS PARA EL MODELO ---
+MODEL_DIR = 'models'
+MODEL_PATH = os.path.join(MODEL_DIR, 'agrupamiento_rf_model.pkl')
+VECTORIZER_PATH = os.path.join(MODEL_DIR, 'tfidf_vectorizer.pkl')
+
+# Cargar JSON de practicantes (df_original)
 url_json = "https://bucketreportezoom.s3.us-east-1.amazonaws.com/ultimo.json"
 try:
     response = requests.get(url_json)
     response.raise_for_status()
     data_json = response.json()
+    df_original = pd.DataFrame(data_json) # Cargar df_original aquí
+    print("DataFrame 'df_original' cargado desde la URL.")
+
+    # Aseguramos que 'nombre_normalizado' exista en df_original para TF-IDF si no se ha hecho ya
+    if 'nombre' in df_original.columns and 'nombre_normalizado' not in df_original.columns:
+        df_original['nombre_normalizado'] = df_original['nombre'].apply(lambda x: normalizar_nombre(x) if pd.notna(x) else None)
+        print("Columna 'nombre_normalizado' creada en df_original.")
+    
     json_areas = {}
     for p in data_json:
-        nombre_norm = unicodedata.normalize('NFD', p['nombre']).encode('ascii', 'ignore').decode('utf-8').lower().strip()
-        partes = nombre_norm.split()
+        nombre_norm_temp = unicodedata.normalize('NFD', p['nombre']).encode('ascii', 'ignore').decode('utf-8').lower().strip()
+        partes = nombre_norm_temp.split()
         if len(partes) < 3:
             continue
-        json_areas[nombre_norm] = p['area']
+        json_areas[nombre_norm_temp] = p['area']
         if len(partes) > 1:
             nombre_invertido = ' '.join(reversed(partes))
             json_areas[nombre_invertido] = p['area']
+
 except Exception as e:
-    print(f"Error al cargar JSON: {e}")
+    print(f"Error al cargar JSON o inicializar df_original: {e}")
     data_json = []
+    df_original = pd.DataFrame()
     json_areas = {}
+
+### CAMBIOS PARA INTEGRAR ML: Cargar el modelo ML y el vectorizador al inicio ###
+model = None
+vectorizer = None # Inicializar como None
+try:
+    if os.path.exists(MODEL_PATH):
+        model = joblib.load(MODEL_PATH)
+        print(f"Modelo cargado desde: {MODEL_PATH}")
+    else:
+        print(f"Advertencia: Modelo no encontrado en {MODEL_PATH}. El agrupamiento ML no estará disponible.")
+
+    if os.path.exists(VECTORIZER_PATH):
+        vectorizer = joblib.load(VECTORIZER_PATH)
+        print(f"Vectorizer cargado desde: {VECTORIZER_PATH}")
+    else:
+        print(f"Advertencia: Vectorizer TF-IDF no encontrado en {VECTORIZER_PATH}.")
+        # Intentar ajustar el vectorizer con los nombres de df_original si no está cargado
+        if not df_original.empty and 'nombre_normalizado' in df_original.columns:
+            all_unique_names = df_original['nombre_normalizado'].dropna().unique().tolist()
+            if all_unique_names:
+                vectorizer = TfidfVectorizer().fit(all_unique_names)
+                # Opcional: Guardar el vectorizer recién ajustado para futuras cargas
+                # joblib.dump(vectorizer, VECTORIZER_PATH)
+                print("TF-IDF Vectorizer ajustado con nombres de df_original (si no existía un archivo guardado).")
+            else:
+                print("No hay nombres únicos en df_original para ajustar el TF-IDF Vectorizer.")
+
+except Exception as e:
+    print(f"Error al cargar modelo o vectorizador: {e}")
+    model = None
+    vectorizer = None
+### FIN CAMBIOS PARA INTEGRAR ML ###
+
 
 def normalizar_nombre(nombre):
     """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
@@ -95,130 +158,263 @@ def normalizar_nombre(nombre):
 
     return ' '.join(palabras)
 
-def agrupar_nombres_similares(df):
+### CAMBIOS PARA INTEGRAR ML: Función generar_caracteristicas necesaria para el modelo ###
+def generar_caracteristicas(nombre1, nombre2):
+    global vectorizer # Usar el vectorizer global
+
+    if pd.isna(nombre1) or pd.isna(nombre2):
+        return {
+            'jaro_winkler': 0, 'levenshtein': 0, 'jaro_winkler_sort': 0,
+            'token_set_ratio': 0, 'token_sort_ratio': 0, 'partial_ratio': 0,
+            'qgram_similarity': 0, 'jaccard_similarity': 0, 'cosine_similarity_tfidf': 0,
+            'len_diff': abs(len(str(nombre1)) - len(str(nombre2))) if pd.notna(nombre1) and pd.notna(nombre2) else 0,
+            'len_ratio': len(str(nombre1)) / (len(str(nombre2)) + 1e-6) if pd.notna(nombre1) and pd.notna(nombre2) else 0,
+            'first_name_match': 0, 'last_apellido_match': 0, 'num_common_words': 0,
+            'inicial_match': 0, 'nombre1_in_nombre2': 0, 'nombre2_in_nombre1': 0
+        }
+
+    set1 = set(nombre1.split())
+    set2 = set(nombre2.split())
+
+    # Cosine Similarity con TF-IDF
+    cosine_sim = 0
+    if vectorizer is not None and hasattr(vectorizer, 'vocabulary_') and vectorizer.vocabulary_:
+        try:
+            tfidf_matrix = vectorizer.transform([nombre1, nombre2])
+            cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+        except ValueError:
+            cosine_sim = 0
+
+    first_name_match = 0
+    if nombre1.split() and nombre2.split():
+        if nombre1.split()[0] == nombre2.split()[0]:
+            first_name_match = 1
+
+    last_apellido_match = 0
+    last_word_name1 = nombre1.split()[-1] if nombre1.split() else ''
+    last_word_name2 = nombre2.split()[-1] if nombre2.split() else ''
+    
+    if last_word_name1 == last_word_name2 and last_word_name1 != '':
+        last_apellido_match = 1
+    elif (len(nombre1.split()) <= 2 and last_word_name1 in nombre2.split()[-2:]) or \
+         (len(nombre2.split()) <= 2 and last_word_name2 in nombre1.split()[-2:]):
+        last_apellido_match = 1
+
+    num_common_words = len(set1.intersection(set2))
+
+    inicial_match = 0
+    if nombre1 and nombre2:
+        if nombre1[0] == nombre2[0]:
+            inicial_match = 1
+            
+    nombre1_in_nombre2 = int(nombre1 in nombre2)
+    nombre2_in_nombre1 = int(nombre2 in nombre1)
+
+    features = {
+        'jaro_winkler': fuzz.ratio(nombre1, nombre2) / 100.0,
+        'levenshtein': fuzz.ratio(nombre1, nombre2) / 100.0,
+        'jaro_winkler_sort': fuzz.token_sort_ratio(nombre1, nombre2) / 100.0,
+        'token_set_ratio': fuzz.token_set_ratio(nombre1, nombre2) / 100.0,
+        'token_sort_ratio': fuzz.token_sort_ratio(nombre1, nombre2) / 100.0,
+        'partial_ratio': fuzz.partial_ratio(nombre1, nombre2) / 100.0,
+        'qgram_similarity': (2 * len(set1.intersection(set2))) / (len(set1) + len(set2)) if (len(set1) + len(set2)) > 0 else 0,
+        'jaccard_similarity': (2 * len(set1.intersection(set2))) / (len(set1) + len(set2)) if (len(set1) + len(set2)) > 0 else 0,
+        'cosine_similarity_tfidf': cosine_sim,
+        'len_diff': abs(len(nombre1) - len(nombre2)),
+        'len_ratio': len(nombre1) / (len(nombre2) + 1e-6) if len(nombre2) > 0 else 0,
+        'first_name_match': first_name_match,
+        'last_apellido_match': last_apellido_match,
+        'num_common_words': num_common_words,
+        'inicial_match': inicial_match,
+        'nombre1_in_nombre2': nombre1_in_nombre2,
+        'nombre2_in_nombre1': nombre2_in_nombre1
+    }
+    return features
+
+### CAMBIOS PARA INTEGRAR ML: Nueva función para el agrupamiento basado en ML ###
+def _agrupar_nombres_con_ml_interna(df, model, threshold=0.25):
     """
-    Agrupa nombres similares con una validación robusta y jerárquica,
-    considerando iniciales y componentes faltantes.
+    Función interna para agrupar nombres utilizando el modelo de Machine Learning.
+    Retorna el DataFrame con una nueva columna 'nombre_agrupado_ml'.
     """
     if 'nombre' not in df.columns:
+        print("La columna 'nombre' no se encuentra en el DataFrame.")
         return df
 
-    df['nombre_normalizado'] = df['nombre'].apply(normalizar_nombre)
-    nombres_unicos = df['nombre_normalizado'].unique().tolist()
-    mapeo_final = {}
-    usados = set()
+    if 'nombre_normalizado' not in df.columns:
+        df['nombre_normalizado'] = df['nombre'].apply(normalizar_nombre)
 
-    for nombre_base_norm in nombres_unicos:
-        if nombre_base_norm in usados:
+    nombres_unicos = df['nombre_normalizado'].dropna().unique().tolist()
+    mapeo_grupos = {}
+    nombres_asignados = set()
+
+    nombres_unicos_sorted = sorted(nombres_unicos, key=len, reverse=True)
+
+    for nombre_base_norm in nombres_unicos_sorted:
+        if nombre_base_norm in nombres_asignados:
             continue
 
-        palabras_base = nombre_base_norm.split()
-        set_base = set(palabras_base)
-        grupo = [nombre_base_norm]
+        grupo_actual = {nombre_base_norm}
+        nombres_asignados.add(nombre_base_norm)
 
-        for otro_nombre_norm in nombres_unicos:
-            if otro_nombre_norm == nombre_base_norm or otro_nombre_norm in usados:
-                continue
-
-            palabras_otro = otro_nombre_norm.split()
-            set_otro = set(palabras_otro)
-
-            # --- Validación Jerárquica ---
-
-            # Nivel 1: Coincidencia Exacta (después de normalizar)
+        for otro_nombre_norm in nombres_unicos_sorted:
             if nombre_base_norm == otro_nombre_norm:
-                grupo.append(otro_nombre_norm)
-                usados.add(otro_nombre_norm)
+                continue
+            if otro_nombre_norm in nombres_asignados:
                 continue
 
-            # Nivel 2: Mismos Componentes (sin importar el orden, hasta 4 palabras)
-            if len(palabras_base) <= 4 and len(palabras_otro) <= 4 and set_base == set_otro:
-                grupo.append(otro_nombre_norm)
-                usados.add(otro_nombre_norm)
-                continue
+            features = generar_caracteristicas(nombre_base_norm, otro_nombre_norm)
+            features_df = pd.DataFrame([features])
+            
+            try:
+                prob_misma_persona = model.predict_proba(features_df)[:, 1][0]
+                if prob_misma_persona >= threshold:
+                    grupo_actual.add(otro_nombre_norm)
+                    nombres_asignados.add(otro_nombre_norm)
+            except Exception as e:
+                # print(f"Error al predecir con el modelo para {nombre_base_norm} y {otro_nombre_norm}: {e}")
+                # En caso de error (ej. features_df malformado), no agruparlos por ML en este par
+                pass 
 
-            # Nivel 3: Contención Mutua Significativa (uno contiene casi todas las palabras del otro)
-            if (len(intersection := set_base.intersection(set_otro)) > 0 and
-                    (len(intersection) / len(set_base) > 0.7 or len(intersection) / len(set_otro) > 0.7)):
-                grupo.append(otro_nombre_norm)
-                usados.add(otro_nombre_norm)
-                continue
+        if grupo_actual:
+            nombre_representativo = max(grupo_actual, key=lambda x: (len(x), x))
+            for nom in grupo_actual:
+                mapeo_grupos[nom] = nombre_representativo
 
-            # Nivel 4: Coincidencia Fuerte del Último Apellido y Alta Similitud del Resto
-            if palabras_base and palabras_otro and palabras_base[-1] == palabras_otro[-1]:
-                nombre_base_resto = " ".join(palabras_base[:-1])
-                nombre_otro_resto = " ".join(palabras_otro[:-1])
-                if SequenceMatcher(None, nombre_base_resto, nombre_otro_resto).ratio() > 0.7:
-                    grupo.append(otro_nombre_norm)
-                    usados.add(otro_nombre_norm)
-                    continue
-
-            # Nivel 4.5: Mismo primer nombre y coincidencia parcial en apellidos
-            if len(palabras_base) >= 2 and len(palabras_otro) >= 2:
-                if palabras_base[0] == palabras_otro[0]:
-                    # Comparar apellidos (últimos dos elementos si existen)
-                    apellidos_base = set(palabras_base[1:])
-                    apellidos_otro = set(palabras_otro[1:])
-                    if len(apellidos_base.intersection(apellidos_otro)) >= 1:
-                        grupo.append(otro_nombre_norm)
-                        usados.add(otro_nombre_norm)
-                        continue
-
-            # Nivel 4.8: Ignorar título si está en la primera palabra y comparar desde la segunda
-            if palabras_base and palabras_otro:
-                base_sin_titulo = palabras_base.copy()
-                otro_sin_titulo = palabras_otro.copy()
-
-                if base_sin_titulo[0] in TITULOS_PERSONALES:
-                    base_sin_titulo = base_sin_titulo[1:]
-                if otro_sin_titulo[0] in TITULOS_PERSONALES:
-                    otro_sin_titulo = otro_sin_titulo[1:]
-
-                if len(base_sin_titulo) >= 2 and len(otro_sin_titulo) >= 2:
-                    set_base_sin = set(base_sin_titulo)
-                    set_otro_sin = set(otro_sin_titulo)
-                    inter = set_base_sin.intersection(set_otro_sin)
-                    union = set_base_sin.union(set_otro_sin)
-                    if len(inter) >= 2 or (len(inter) / len(union)) >= 0.6:
-                        grupo.append(otro_nombre_norm)
-                        usados.add(otro_nombre_norm)
-                        continue
-
-            # Nivel 5: Alta Similitud de Secuencia General (para pequeñas variaciones tipográficas o de orden)
-            if SequenceMatcher(None, nombre_base_norm, otro_nombre_norm).ratio() > 0.8:
-                grupo.append(otro_nombre_norm)
-                usados.add(otro_nombre_norm)
-                continue
-
-            # --- Nueva Validación: Manejo de Iniciales y Componentes Faltantes ---
-            if palabras_base and palabras_otro and palabras_base[-1] == palabras_otro[-1]:  # Misma Apellido
-                nombres_base_sin_iniciales = " ".join([p for p in palabras_base if len(p) > 1])
-                nombres_otro_sin_iniciales = " ".join([p for p in palabras_otro if len(p) > 1])
-                if SequenceMatcher(None, nombres_base_sin_iniciales, nombres_otro_sin_iniciales).ratio() > 0.7:
-                    grupo.append(otro_nombre_norm)
-                    usados.add(otro_nombre_norm)
-                    continue
-
-            # --- Validaciones Negativas (para evitar agrupaciones incorrectas) ---
-            # Validación para nombres con el mismo nombre y primer apellido pero diferente segundo apellido
-            if len(palabras_base) >= 3 and len(palabras_otro) >= 3 and \
-                    palabras_base[0] == palabras_otro[0] and palabras_base[1] == palabras_otro[1] and \
-                    palabras_base[2] != palabras_otro[2]:
-                continue
-
-            # Validación para nombres con los mismos apellidos pero diferente primer nombre
-            if len(palabras_base) >= 2 and len(palabras_otro) >= 2 and \
-                    palabras_base[-2:] == palabras_otro[-2:] and palabras_base[0] != palabras_otro[0]:
-                continue
-
-        if grupo:
-            nombre_representativo = max(grupo, key=lambda x: len(x))
-            for item in grupo:
-                mapeo_final[item] = nombre_representativo
-                usados.add(item)
-
-    df['nombre'] = df['nombre_normalizado'].map(mapeo_final).fillna(df['nombre_normalizado']).str.upper()
+    df['nombre_agrupado_ml'] = df['nombre_normalizado'].map(mapeo_grupos)
+    df['nombre_agrupado_ml'] = df['nombre_agrupado_ml'].fillna(df['nombre_normalizado']).str.upper()
     return df
+
+### FIN CAMBIOS PARA INTEGRAR ML ###
+
+
+def agrupar_nombres_similares(df):
+    """
+    Agrupa nombres similares utilizando el modelo de Machine Learning si está disponible,
+    o recurre a la lógica heurística tradicional si no lo está.
+    """
+    # Siempre normalizar nombres al inicio, ya que el agrupamiento heurístico también lo usa
+    if 'nombre_normalizado' not in df.columns:
+        df['nombre_normalizado'] = df['nombre'].apply(normalizar_nombre)
+
+    # --- Lógica de decisión: Usar ML o heurística ---
+    if model is not None and vectorizer is not None:
+        print("\nUtilizando el modelo de Machine Learning para agrupar nombres.")
+        # Llamar a la función interna de ML, que ya maneja 'nombre_normalizado'
+        df_agrupado = _agrupar_nombres_con_ml_interna(df.copy(), model, threshold=0.25) # Ajusta el threshold aquí
+        # La función _agrupar_nombres_con_ml_interna ya devuelve 'nombre_agrupado_ml'
+        # Asegúrate de que la columna final se llame 'nombre' para mantener la compatibilidad
+        df_agrupado['nombre'] = df_agrupado['nombre_agrupado_ml'] # Reemplazar la columna 'nombre' con la agrupada por ML
+        return df_agrupado
+    else:
+        print("\nModelo ML no disponible o vectorizador no cargado. Recurriendo a la lógica heurística para agrupar nombres.")
+        # Lógica heurística original
+        nombres_unicos = df['nombre_normalizado'].unique().tolist()
+        mapeo_final = {}
+        usados = set()
+
+        for nombre_base_norm in nombres_unicos:
+            if nombre_base_norm in usados:
+                continue
+
+            palabras_base = nombre_base_norm.split()
+            set_base = set(palabras_base)
+            grupo = [nombre_base_norm]
+
+            for otro_nombre_norm in nombres_unicos:
+                if otro_nombre_norm == nombre_base_norm or otro_nombre_norm in usados:
+                    continue
+
+                palabras_otro = otro_nombre_norm.split()
+                set_otro = set(palabras_otro)
+
+                # --- Validación Jerárquica (Tu lógica original) ---
+                if nombre_base_norm == otro_nombre_norm:
+                    grupo.append(otro_nombre_norm)
+                    usados.add(otro_nombre_norm)
+                    continue
+
+                if len(palabras_base) <= 4 and len(palabras_otro) <= 4 and set_base == set_otro:
+                    grupo.append(otro_nombre_norm)
+                    usados.add(otro_nombre_norm)
+                    continue
+
+                if (len(intersection := set_base.intersection(set_otro)) > 0 and
+                        (len(intersection) / len(set_base) > 0.7 or len(intersection) / len(set_otro) > 0.7)):
+                    grupo.append(otro_nombre_norm)
+                    usados.add(otro_nombre_norm)
+                    continue
+
+                if palabras_base and palabras_otro and palabras_base[-1] == palabras_otro[-1]:
+                    nombre_base_resto = " ".join(palabras_base[:-1])
+                    nombre_otro_resto = " ".join(palabras_otro[:-1])
+                    if SequenceMatcher(None, nombre_base_resto, nombre_otro_resto).ratio() > 0.7:
+                        grupo.append(otro_nombre_norm)
+                        usados.add(otro_nombre_norm)
+                        continue
+
+                if len(palabras_base) >= 2 and len(palabras_otro) >= 2:
+                    if palabras_base[0] == palabras_otro[0]:
+                        apellidos_base = set(palabras_base[1:])
+                        apellidos_otro = set(palabras_otro[1:])
+                        if len(apellidos_base.intersection(apellidos_otro)) >= 1:
+                            grupo.append(otro_nombre_norm)
+                            usados.add(otro_nombre_norm)
+                            continue
+
+                if palabras_base and palabras_otro:
+                    base_sin_titulo = palabras_base.copy()
+                    otro_sin_titulo = palabras_otro.copy()
+
+                    if base_sin_titulo[0] in TITULOS_PERSONALES:
+                        base_sin_titulo = base_sin_titulo[1:]
+                    if otro_sin_titulo[0] in TITULOS_PERSONALES:
+                        otro_sin_titulo = otro_sin_titulo[1:]
+
+                    if len(base_sin_titulo) >= 2 and len(otro_sin_titulo) >= 2:
+                        set_base_sin = set(base_sin_titulo)
+                        set_otro_sin = set(otro_sin_titulo)
+                        inter = set_base_sin.intersection(set_otro_sin)
+                        union = set_base_sin.union(set_otro_sin)
+                        if len(inter) >= 2 or (len(inter) / len(union)) >= 0.6:
+                            grupo.append(otro_nombre_norm)
+                            usados.add(otro_nombre_norm)
+                            continue
+
+                if SequenceMatcher(None, nombre_base_norm, otro_nombre_norm).ratio() > 0.8:
+                    grupo.append(otro_nombre_norm)
+                    usados.add(otro_nombre_norm)
+                    continue
+
+                if palabras_base and palabras_otro and palabras_base[-1] == palabras_otro[-1]:
+                    nombres_base_sin_iniciales = " ".join([p for p in palabras_base if len(p) > 1])
+                    nombres_otro_sin_iniciales = " ".join([p for p in palabras_otro if len(p) > 1])
+                    if SequenceMatcher(None, nombres_base_sin_iniciales, nombres_otro_sin_iniciales).ratio() > 0.7:
+                        grupo.append(otro_nombre_norm)
+                        usados.add(otro_nombre_norm)
+                        continue
+
+                # Validaciones Negativas (para evitar agrupaciones incorrectas)
+                if len(palabras_base) >= 3 and len(palabras_otro) >= 3 and \
+                        palabras_base[0] == palabras_otro[0] and palabras_base[1] == palabras_otro[1] and \
+                        palabras_base[2] != palabras_otro[2]:
+                    continue
+
+                if len(palabras_base) >= 2 and len(palabras_otro) >= 2 and \
+                        palabras_base[-2:] == palabras_otro[-2:] and palabras_base[0] != palabras_otro[0]:
+                    continue
+
+            if grupo:
+                nombre_representativo = max(grupo, key=lambda x: len(x))
+                for item in grupo:
+                    mapeo_final[item] = nombre_representativo
+                    usados.add(item)
+        
+        # Asignar los nombres agrupados a la columna 'nombre'
+        df['nombre'] = df['nombre_normalizado'].map(mapeo_final).fillna(df['nombre_normalizado']).str.upper()
+        # Crear 'nombre_agrupado_ml' como alias si no se usó el ML
+        df['nombre_agrupado_ml'] = df['nombre'] 
+        return df
 
 def obtener_nombre_completo_bd(df):
     if 'nombre' not in df.columns:
@@ -319,7 +515,12 @@ def buscar_area(nombre_practicante):
 
 
 def calcular_total_horas(grupo):
-    """Calcula el total de horas trabajadas por un grupo de registros continuos."""
+    """
+    Calcula el total de horas trabajadas por un grupo de registros continuos.
+    - Une bloques si están separados por 1 minuto o menos.
+    - Descarta bloques cuya duración total es menor a 1 minuto.
+    Retorna: (texto legible, minutos totales)
+    """
     grupo = grupo.sort_values('entrada')
     total = pd.Timedelta(0)
     i = 0
@@ -329,23 +530,34 @@ def calcular_total_horas(grupo):
         fin = grupo.iloc[i]['salida']
         j = i + 1
 
+        # Verifica si hay bloques continuos (con ≤ 1 minuto de separación)
         while j < len(grupo):
             siguiente_inicio = grupo.iloc[j]['entrada']
+            diferencia = (siguiente_inicio - fin).total_seconds()
 
-            # Tolerancia: 1 minuto máximo de diferencia entre fin y siguiente inicio
-            if abs((siguiente_inicio - fin).total_seconds()) <= 60:
+            if diferencia <= 60:
+                # Unir este bloque al anterior
                 fin = grupo.iloc[j]['salida']
                 j += 1
             else:
                 break
 
-        total += (fin - inicio)
+        duracion = fin - inicio
+
+        # ✅ Solo sumar bloques de al menos 1 minuto
+        if duracion.total_seconds() >= 60:
+            total += duracion
+
         i = j
 
-    minutos_totales = round(total.total_seconds() / 60)  # 🔧 redondear
-    horas_exactas = round(minutos_totales / 60, 2)        # 🔧 mantener redondeo exacto
+    # Convertir a minutos y desglosar en horas + minutos
+    minutos_totales = round(total.total_seconds() / 60)
+    horas = minutos_totales // 60
+    minutos_restantes = minutos_totales % 60
 
-    return f"{horas_exactas:.2f}", minutos_totales
+    texto_legible = f"{horas}h {minutos_restantes}m"
+
+    return texto_legible, minutos_totales
 
 
 def procesar_excel(file_paths): 
@@ -694,10 +906,6 @@ def exportar_a_archivo(df_exportar, ruta):
     except Exception as e:
         print(f"Error al exportar archivo: {e}")
         return False
-
-def quitar_tildes_y_ñ(texto):
-    texto_sin_tildes = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
-    return texto_sin_tildes.replace('ñ', 'n').replace('Ñ', 'N')
 
 def quitar_tildes_y_ñ(texto):
     texto_sin_tildes = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
@@ -1256,4 +1464,207 @@ def registrar_historial_busqueda(texto, df_resultado):
     guardar_en_historial(descripcion, archivos=ULTIMAS_RUTAS_CARGADAS, filtros=filtros, df_estado=df_resultado)
 
 
+### Funcionalidad para generar graficos 
+def generar_grafico_barras_area(df):
+    """
+    Genera un gráfico de barras que muestra la cantidad de practicantes por área.
+    """
+    try:
+        if df.empty:
+            return {
+                'success': False,
+                'error': 'No hay datos para generar el gráfico de practicantes por área.'
+            }
 
+        # Asegúrate de que 'Área' y 'nombre' (o alguna columna para contar) existan.
+        if 'Área' not in df.columns:
+            return {
+                'success': False,
+                'error': 'La columna "Área" no se encontró en el DataFrame para generar el gráfico.'
+            }
+        
+        # Elimina las filas de encabezado de fecha si existen, para contar solo practicantes.
+        df_cleaned = df[~df['Nombre Practicante'].str.startswith('📅 Fecha de Reporte', na=False)].copy()
+
+        if df_cleaned.empty:
+            return {
+                'success': False,
+                'error': 'No hay datos de practicantes válidos después de limpiar para generar el gráfico por área.'
+            }
+
+        # Contar practicantes únicos por área
+        # Asumiendo que 'Nombre Practicante' es la columna de interés para contar individuos
+        conteo_areas = df_cleaned.groupby('Área')['Nombre Practicante'].nunique().sort_values(ascending=False)
+
+        if conteo_areas.empty:
+            return {
+                'success': False,
+                'error': 'No se pudo calcular el conteo de practicantes únicos por área.'
+            }
+
+        plt.figure(figsize=(12, 7)) # Aumentar ligeramente el tamaño para mejor visualización
+        bars = plt.bar(range(len(conteo_areas)), conteo_areas.values,
+                       color=['#6A5ACD', '#FFD700', '#20B2AA', '#F08080', '#9370DB', '#8B0000', '#DAA520'])
+
+        plt.title('Cantidad de Practicantes por Área', fontsize=18, fontweight='bold', color='#333333')
+        plt.xlabel('Áreas', fontsize=14, color='#555555')
+        plt.ylabel('Número de Practicantes', fontsize=14, color='#555555')
+
+        # Configurar el localizador del eje Y para mostrar solo enteros
+        plt.gca().yaxis.set_major_locator(MaxNLocator(integer=True))
+
+        plt.xticks(range(len(conteo_areas)), conteo_areas.index, rotation=45, ha='right', fontsize=10)
+        plt.yticks(fontsize=10)
+
+        # Agregar el conteo encima de cada barra
+        for i, bar in enumerate(bars):
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width()/2., height + 0.5,
+                     f'{int(height)}', ha='center', va='bottom', fontsize=10, fontweight='bold', color='#222222')
+
+        plt.tight_layout()
+        plt.grid(axis='y', linestyle='--', alpha=0.6) # Líneas de grilla más suaves
+        # plt.show() # Opcional: mostrar la figura si estás depurando localmente
+
+        # Convertir a base64
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
+        img_buffer.seek(0)
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+        plt.close()
+
+        return {
+            'success': True,
+            'image': img_base64,
+            'title': 'Cantidad de Practicantes por Área'
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc() # Imprimir el traceback para depuración
+        return {
+            'success': False,
+            'error': f"Error al generar el gráfico de barras por área: {str(e)}"
+        }
+
+
+def generar_grafico_horas_promedio(df, nombre_practicante=None):
+    """
+    Genera un gráfico mostrando las horas promedio por área o las horas por día para un practicante específico.
+    """
+    try:
+        if df.empty:
+            return {
+                'success': False,
+                'error': 'No hay datos para generar el gráfico de horas.'
+            }
+
+        # Filtrar solo las filas de practicantes (excluir las filas de fecha de reporte)
+        df_practicantes = df[pd.to_numeric(df['#'], errors='coerce').notna()].copy()
+
+        if df_practicantes.empty:
+            return {
+                'success': False,
+                'error': 'No hay datos de practicantes válidos después de limpiar para generar el gráfico de horas.'
+            }
+
+        # Convertir 'Horas T.' a numérico para poder calcular el promedio
+        df_practicantes['Horas T.'] = pd.to_numeric(df_practicantes['Horas T.'], errors='coerce')
+        df_practicantes = df_practicantes.dropna(subset=['Horas T.'])
+
+        if df_practicantes.empty:
+            return {
+                'success': False,
+                'error': 'No hay datos numéricos válidos de horas para calcular el promedio.'
+            }
+
+        if nombre_practicante:
+            # Filtrar por practicante si se proporciona un nombre
+            df_practicante_filtrado = df_practicantes[df_practicantes['Nombre Practicante'].str.contains(nombre_practicante, case=False, na=False)].copy()
+            
+            if df_practicante_filtrado.empty:
+                return {
+                    'success': False,
+                    'error': f'No se encontraron datos para el practicante "{nombre_practicante}".'
+                }
+            
+            # Ordenar por fecha para el gráfico de un solo practicante
+            df_practicante_filtrado['fecha'] = pd.to_datetime(df_practicante_filtrado['fecha'])
+            df_practicante_filtrado = df_practicante_filtrado.sort_values('fecha')
+
+            # Agrupar por fecha y sumar las horas para el practicante
+            horas_por_dia = df_practicante_filtrado.groupby(df_practicante_filtrado['fecha'].dt.strftime('%d/%m/%Y'))['Horas T.'].sum()
+            
+            if horas_por_dia.empty:
+                return {
+                    'success': False,
+                    'error': f'No se pudieron calcular las horas por día para el practicante "{nombre_practicante}".'
+                }
+
+            # Configuración del gráfico para un solo practicante
+            title = f'Horas de Práctica por Día para {nombre_practicante}'
+            xlabel = 'Fecha'
+            ylabel = 'Horas Trabajadas'
+            data_to_plot = horas_por_dia
+        else:
+            # Comportamiento original: horas promedio por área
+            if 'Área' not in df.columns:
+                return {
+                    'success': False,
+                    'error': 'La columna "Área" no se encontró en el DataFrame para generar el gráfico de horas promedio por área.'
+                }
+            horas_promedio = df_practicantes.groupby('Área')['Horas T.'].mean().sort_values(ascending=False)
+            
+            if horas_promedio.empty:
+                return {
+                    'success': False,
+                    'error': 'No se pudo calcular las horas promedio por área.'
+                }
+            title = 'Horas Promedio de Práctica por Área'
+            xlabel = 'Áreas'
+            ylabel = 'Horas Promedio'
+            data_to_plot = horas_promedio
+
+        # Crear el gráfico
+        plt.figure(figsize=(12, 6))
+        bars = plt.bar(range(len(data_to_plot)), data_to_plot.values,
+                       color=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']) # Colores suaves
+
+        # Personalizar el gráfico
+        plt.title(title, fontsize=16, fontweight='bold')
+        plt.xlabel(xlabel, fontsize=12)
+        plt.ylabel(ylabel, fontsize=12)
+
+        # Configurar etiquetas del eje X
+        plt.xticks(range(len(data_to_plot)), data_to_plot.index, rotation=45, ha='right')
+
+        # Agregar valores encima de las barras
+        for i, bar in enumerate(bars):
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width()/2., height + 0.05,
+                     f'{height:.2f}h', ha='center', va='bottom', fontweight='bold')
+
+        plt.tight_layout() # Ajusta automáticamente los parámetros del subplot para que encajen en la figura.
+        plt.grid(axis='y', alpha=0.3) # Añade una cuadrícula suave en el eje Y
+
+        # Convertir a base64
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight') # Guarda la figura en el buffer
+        img_buffer.seek(0) # Vuelve al inicio del buffer
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode() # Codifica a base64
+        plt.close() # Cierra la figura para liberar memoria
+
+        return {
+            'success': True,
+            'image': img_base64,
+            'title': title
+        }
+
+    except Exception as e:
+        # Captura cualquier error durante la generación del gráfico
+        import traceback
+        traceback.print_exc() # Imprime el traceback completo para depuración
+        return {
+            'success': False,
+            'error': f"Error al generar el gráfico: {str(e)}"
+        }

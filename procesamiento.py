@@ -58,6 +58,42 @@ MODEL_DIR = 'models'
 MODEL_PATH = os.path.join(MODEL_DIR, 'agrupamiento_rf_model.pkl')
 VECTORIZER_PATH = os.path.join(MODEL_DIR, 'tfidf_vectorizer.pkl')
 
+def normalizar_nombre(nombre):
+    """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
+    if not isinstance(nombre, str):
+        return ""
+    
+    nombre = nombre.lower()
+    nombre_original = nombre
+
+    # Quitar paréntesis con contenido
+    nombre = re.sub(r'\(.*?\)', '', nombre)
+
+    # Eliminar una vez prefijos seguros (solo si están claramente al inicio con guión o espacio)
+    nombre = re.sub(regex_prefijos, '', nombre)
+
+    # Evitar errores como "ingrid", "luis", etc.
+    nombre = re.sub(r'^[a-z]{2,6}[\-\_]', '', nombre)
+
+    # Normalizar tildes y símbolos
+    nombre = unicodedata.normalize('NFD', nombre)
+    nombre = ''.join(c for c in nombre if unicodedata.category(c) != 'Mn')
+
+    # Eliminar caracteres raros
+    nombre = re.sub(r'[^a-z\s]', '', nombre)
+    nombre = re.sub(r'\s+', ' ', nombre).strip()
+
+    # Restaurar si quedó vacío
+    if not nombre:
+        return nombre_original.lower()
+
+    # Reducir nombres muy largos a 3 componentes
+    palabras = nombre.split()
+    if len(palabras) > 4:
+        palabras = [palabras[0]] + palabras[-2:]
+
+    return ' '.join(palabras)
+
 # Cargar JSON de practicantes (df_original)
 url_json = "https://bucketreportezoom.s3.us-east-1.amazonaws.com/ultimo.json"
 try:
@@ -121,42 +157,6 @@ except Exception as e:
     vectorizer = None
 ### FIN CAMBIOS PARA INTEGRAR ML ###
 
-
-def normalizar_nombre(nombre):
-    """Normaliza nombres eliminando prefijos institucionales y académicos sin dañar nombres válidos."""
-    if not isinstance(nombre, str):
-        return ""
-    
-    nombre = nombre.lower()
-    nombre_original = nombre
-
-    # Quitar paréntesis con contenido
-    nombre = re.sub(r'\(.*?\)', '', nombre)
-
-    # Eliminar una vez prefijos seguros (solo si están claramente al inicio con guión o espacio)
-    nombre = re.sub(regex_prefijos, '', nombre)
-
-    # Evitar errores como "ingrid", "luis", etc.
-    nombre = re.sub(r'^[a-z]{2,6}[\-\_]', '', nombre)
-
-    # Normalizar tildes y símbolos
-    nombre = unicodedata.normalize('NFD', nombre)
-    nombre = ''.join(c for c in nombre if unicodedata.category(c) != 'Mn')
-
-    # Eliminar caracteres raros
-    nombre = re.sub(r'[^a-z\s]', '', nombre)
-    nombre = re.sub(r'\s+', ' ', nombre).strip()
-
-    # Restaurar si quedó vacío
-    if not nombre:
-        return nombre_original.lower()
-
-    # Reducir nombres muy largos a 3 componentes
-    palabras = nombre.split()
-    if len(palabras) > 4:
-        palabras = [palabras[0]] + palabras[-2:]
-
-    return ' '.join(palabras)
 
 ### CAMBIOS PARA INTEGRAR ML: Función generar_caracteristicas necesaria para el modelo ###
 def generar_caracteristicas(nombre1, nombre2):
